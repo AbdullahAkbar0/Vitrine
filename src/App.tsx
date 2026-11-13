@@ -17,7 +17,6 @@ const tabFromHash = (): Tab => {
 export default function App() {
   const [tab, setTab] = useState<Tab>(tabFromHash)
   const [status, setStatus] = useState<StartupStatus | null>(null)
-  const [focusInstall, setFocusInstall] = useState(false)
 
   useEffect(() => {
     startup().then(setStatus)
@@ -27,7 +26,6 @@ export default function App() {
   }, [])
 
   const go = useCallback((next: Tab) => {
-    setFocusInstall(false)
     setTab(next)
     if (window.location.hash !== `#${next}`) history.replaceState(null, '', `#${next}`)
     window.scrollTo({ top: 0 })
@@ -36,20 +34,12 @@ export default function App() {
   return (
     <div className="min-h-dvh">
       <UpdatePrompt />
-      <div key={tab} className="animate-rise">
-        {tab === 'wardrobe' && (
-          <WardrobeScreen
-            onAdd={() => go('add')}
-            onShowInstall={() => {
-              go('options')
-              setFocusInstall(true)
-            }}
-          />
-        )}
-        {tab === 'tryon' && <TryOnScreen />}
+      <div key={tab}>
+        {tab === 'wardrobe' && <WardrobeScreen onAdd={() => go('add')} />}
+        {tab === 'tryon' && <TryOnScreen onAdd={() => go('add')} />}
         {tab === 'add' && <AddItemScreen />}
         {tab === 'outfits' && <OutfitsScreen onCreate={() => go('tryon')} />}
-        {tab === 'options' && <SettingsScreen status={status} focusInstall={focusInstall} />}
+        {tab === 'options' && <SettingsScreen status={status} />}
       </div>
       <TabBar tab={tab} onChange={go} />
     </div>

@@ -1,7 +1,7 @@
 {
-  "name": "wardrobemirror",
+  "name": "vitrine",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@fontsource-variable/fraunces": "^5.3.0",
-    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/bodoni-moda": "^5.3.0",
+    "@fontsource-variable/jost": "^5.3.0",
     "dexie": "^4.4.7",
     "dexie-react-hooks": "^4.4.0",
     "react": "^19.3.1",
@@ -31,5 +31,5 @@
     "vite": "^8.3.6",
     "vite-plugin-pwa": "^2.0.0"
   },
-  "description": "WardrobeMirror - try your own clothes on a faceless mannequin. Local-only PWA."
+  "description": "Vitrine - style your own clothes on a boutique mannequin. Local-only PWA."
 }

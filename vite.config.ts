@@ -18,21 +18,21 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,
-      includeAssets: ['icons/*.png', 'icons/*.svg', 'mannequins/*'],
+      includeAssets: ['icons/*.png', 'mannequins/*.png'],
       manifest: {
         id: './',
-        name: 'WardrobeMirror',
-        short_name: 'Wardrobe',
+        name: 'Vitrine',
+        short_name: 'Vitrine',
         description:
-          'Photograph your own clothes and try outfits on a faceless mannequin. Everything stays on your phone.',
+          'Photograph your own clothes and style them on a black boutique mannequin. Everything stays on your phone.',
         lang: 'en',
         dir: 'ltr',
         start_url: './',
         scope: './',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#F7F4F1',
-        theme_color: '#F7F4F1',
+        background_color: '#1B0D17',
+        theme_color: '#1B0D17',
         categories: ['lifestyle', 'shopping', 'utilities'],
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

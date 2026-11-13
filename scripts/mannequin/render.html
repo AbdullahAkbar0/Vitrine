@@ -1,0 +1,284 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Mannequin renderer</title>
+<style>html,body{margin:0;background:transparent}canvas{display:block}</style></head>
+<body>
+<canvas id="c"></canvas>
+<script id="fs" type="x-shader/x-fragment">#version 300 es
+precision highp float;
+out vec4 outColor;
+uniform vec2 uRes;
+uniform vec4 uFrame;     // x0, x1, y0, y1 in world units (orthographic window)
+uniform float uFemale;   // 0 = male, 1 = female
+uniform float uYaw;      // rotation of the figure (PI = back view)
+uniform float uWidth;    // body width multiplier (slim < 1 < plus)
+uniform float uHeight;   // height multiplier
+uniform float uMuscle;   // athletic definition 0..1
+uniform int uSamples;    // samples per axis
+uniform float uBase;     // 1 = draw the brass stand
+
+const float PI = 3.14159265;
+
+float smin(float a, float b, float k){ float h = max(k-abs(a-b),0.0)/k; return min(a,b) - h*h*k*0.25; }
+
+float sdEllipsoid(vec3 p, vec3 r){ float k0 = length(p/r); float k1 = length(p/(r*r)); return k0*(k0-1.0)/k1; }
+
+float sdRoundCone(vec3 p, vec3 a, vec3 b, float r1, float r2){
+  vec3 ba = b-a; float l2 = dot(ba,ba); float rr = r1-r2; float a2 = l2-rr*rr; float il2 = 1.0/l2;
+  vec3 pa = p-a; float y = dot(pa,ba); float z = y-l2;
+  vec3 xv = pa*l2-ba*y; float x2 = dot(xv,xv); float y2 = y*y*l2; float z2 = z*z*l2;
+  float k = sign(rr)*rr*rr*x2;
+  if(sign(z)*a2*z2 > k) return sqrt(x2+z2)*il2-r2;
+  if(sign(y)*a2*y2 < k) return sqrt(x2+y2)*il2-r1;
+  return (sqrt(x2*a2*il2)+y*rr)*il2-r1;
+}
+
+float sdCyl(vec3 p, float r, float h, float round){
+  vec2 d = vec2(length(p.xz)-r+round, abs(p.y)-h+round);
+  return min(max(d.x,d.y),0.0) + length(max(d,0.0)) - round;
+}
+
+float mixf(float m, float f){ return mix(m, f, uFemale); }
+vec3 mixv(vec3 m, vec3 f){ return mix(m, f, uFemale); }
+
+// ---------- The figure ----------
+// Returns distance; material in .y (1 = lacquer body, 2 = brass stand)
+vec2 map(vec3 p){
+  // stand
+  float base = 1e5;
+  if(uBase > 0.5){
+    base = sdCyl(p - vec3(0.0,-0.012,0.0), 0.29, 0.012, 0.006);
+    base = min(base, sdCyl(p - vec3(0.0,-0.032,0.0), 0.27, 0.010, 0.004));
+  }
+
+  // figure rotation
+  float c = cos(uYaw), s = sin(uYaw);
+  p.xz = mat2(c,-s,s,c)*p.xz;
+  p.y /= uHeight;
+  float W = uWidth;
+  vec3 q = p; q.x = sqrt(p.x*p.x + 0.00004); // smooth mirror, no seam in the middle
+
+  // head: an egg, narrower at the chin
+  vec3 hc = vec3(0.0, mixf(1.735,1.655), 0.012);
+  vec3 hp = p - hc;
+  hp.yz = mat2(cos(-0.12),-sin(-0.12),sin(-0.12),cos(-0.12))*hp.yz; // tilt chin slightly up
+  vec3 hr = mixv(vec3(0.083,0.115,0.098), vec3(0.075,0.106,0.09));
+  hp.xz *= 1.0 - 0.17*clamp(hp.y/hr.y, -1.0, 1.0);
+  float d = sdEllipsoid(hp, hr);
+
+  // neck
+  float neck = sdRoundCone(p, vec3(0.0,mixf(1.50,1.44),-0.01), vec3(0.0,mixf(1.64,1.565),0.005), mixf(0.056,0.044)*mix(1.0,W,0.5), mixf(0.047,0.036));
+  d = smin(d, neck, 0.035);
+
+  // torso
+  float shY = mixf(1.49, 1.415);
+  float shX = mixf(0.205, 0.165)*W;
+  float tor = sdEllipsoid(p-vec3(0.0, mixf(1.355,1.29), 0.0), vec3(mixf(0.172,0.142)*W, mixf(0.165,0.15), mixf(0.112,0.095)*mix(1.0,W,0.6)));
+  float sh = sdRoundCone(q, vec3(0.05,shY+0.005,-0.012), vec3(shX,shY-mixf(0.03,0.04),-0.012), mixf(0.072,0.06)*mix(1.0,W,0.5), mixf(0.058,0.048));
+  tor = smin(tor, sh, 0.07);
+  // chest / bust
+  float chest = mix(
+    sdEllipsoid(q-vec3(0.072,1.37,0.055), vec3(0.08,0.062,0.05)*(1.0+0.12*uMuscle)),
+    length(q-vec3(0.074,1.282,0.058))-0.061*mix(1.0,W,0.7),
+    uFemale);
+  tor = smin(tor, chest, 0.05);
+  float waist = sdEllipsoid(p-vec3(0.0, mixf(1.13,1.075), -0.004), vec3(mixf(0.138,0.118)*W, 0.14, mixf(0.1,0.083)*W));
+  tor = smin(tor, waist, 0.09);
+  float belly = sdEllipsoid(p-vec3(0.0, mixf(1.03,0.99), 0.012*W), vec3(mixf(0.14,0.122)*W, 0.1, mixf(0.1,0.088)*W));
+  tor = smin(tor, belly, 0.07);
+  float hips = sdEllipsoid(p-vec3(0.0, mixf(0.965,0.915), -0.008), vec3(mixf(0.158,0.168)*W, mixf(0.115,0.125), mixf(0.105,0.108)*W));
+  tor = smin(tor, hips, 0.08);
+  float seat = length(q-vec3(mixf(0.065,0.07)*W, mixf(0.9,0.87), -mixf(0.045,0.05)*W)) - mixf(0.082,0.09)*W;
+  tor = smin(tor, seat, 0.06);
+  // shoulder blades
+  float blade = sdEllipsoid(q-vec3(0.085*W, mixf(1.39,1.33), -0.07), vec3(0.07,0.08,0.04));
+  tor = smin(tor, blade, 0.06);
+  d = smin(d, tor, 0.05);
+
+  // arms (relaxed A-pose, slightly away from the body)
+  vec3 sJ = vec3(shX+0.005, shY-0.035, -0.012);
+  vec3 eJ = vec3(sJ.x+mixf(0.075,0.065)*W, mixf(1.205,1.15), -0.02);
+  vec3 wJ = vec3(eJ.x+mixf(0.052,0.045), mixf(0.95,0.905), 0.02);
+  float ua = sdRoundCone(q, sJ, eJ, mixf(0.056,0.046)*mix(1.0,W,0.8)*(1.0+0.15*uMuscle), mixf(0.042,0.034)*mix(1.0,W,0.6));
+  float fa = sdRoundCone(q, eJ, wJ, mixf(0.04,0.033)*mix(1.0,W,0.6), mixf(0.03,0.025));
+  vec3 hd = normalize(wJ-eJ);
+  vec3 hcn = wJ + hd*0.075;
+  vec3 hq = q - hcn;
+  float hand = sdEllipsoid(hq, vec3(mixf(0.026,0.022), mixf(0.092,0.084), mixf(0.05,0.044)));
+  float arm = smin(ua, fa, 0.05);
+  arm = smin(arm, hand, 0.035);
+  d = smin(d, arm, 0.035);
+
+  // legs
+  vec3 hJ = vec3(mixf(0.092,0.088)*W, mixf(0.93,0.885), 0.0);
+  vec3 kJ = vec3(mixf(0.092,0.08)*mix(1.0,W,0.4), mixf(0.51,0.495), 0.012);
+  vec3 cJ = vec3(kJ.x-0.004, mixf(0.36,0.355), -0.016);
+  vec3 aJ = vec3(mixf(0.088,0.074), 0.085, -0.008);
+  float th = sdRoundCone(q, hJ, kJ, mixf(0.088,0.09)*W*(1.0+0.08*uMuscle), mixf(0.05,0.044)*mix(1.0,W,0.6));
+  float shin = sdRoundCone(q, kJ, aJ, mixf(0.047,0.042)*mix(1.0,W,0.6), mixf(0.035,0.03));
+  float calf = sdEllipsoid(q-vec3(cJ.x+0.002, cJ.y+0.02, cJ.z-0.012), vec3(mixf(0.047,0.042)*mix(1.0,W,0.6)*(1.0+0.1*uMuscle), 0.12, mixf(0.048,0.043)));
+  float foot = sdEllipsoid(q-vec3(aJ.x+0.006, 0.03, mixf(0.05,0.055)), vec3(mixf(0.046,0.039), 0.032, mixf(0.12,0.105)));
+  float heel = sdEllipsoid(q-vec3(aJ.x, 0.04, -0.02), vec3(mixf(0.038,0.032), 0.04, 0.04));
+  float leg = smin(th, shin, 0.08);
+  leg = smin(leg, calf, 0.06);
+  leg = smin(leg, smin(foot, heel, 0.04), 0.05);
+  d = smin(d, leg, 0.05);
+
+  d *= min(1.0, uHeight); // keep the distance conservative when stretched
+
+  return d < base ? vec2(d, 1.0) : vec2(base, 2.0);
+}
+
+vec3 calcNormal(vec3 p){
+  vec2 e = vec2(0.0007, 0.0);
+  return normalize(vec3(
+    map(p+e.xyy).x - map(p-e.xyy).x,
+    map(p+e.yxy).x - map(p-e.yxy).x,
+    map(p+e.yyx).x - map(p-e.yyx).x));
+}
+
+float calcAO(vec3 p, vec3 n){
+  float occ = 0.0, sca = 1.0;
+  for(int i=0;i<5;i++){
+    float h = 0.012 + 0.06*float(i)/4.0;
+    float dd = map(p + h*n).x;
+    occ += (h-dd)*sca; sca *= 0.8;
+  }
+  return clamp(1.0 - 2.4*occ, 0.0, 1.0);
+}
+
+// ---------- Studio lighting (boutique window) ----------
+float box(float v, float a, float b, float soft){ return smoothstep(a-soft, a+soft, v) * (1.0 - smoothstep(b-soft, b+soft, v)); }
+
+vec3 env(vec3 d, float soft){
+  float phi = atan(d.x, d.z);          // 0 = toward the camera
+  float th = asin(clamp(d.y,-1.0,1.0)); // elevation
+  vec3 col = vec3(0.012,0.007,0.011);  // velvet darkness
+  // key softbox, front-left above
+  col += vec3(1.0,0.97,0.93) * 5.0 * box(phi,-1.05,-0.35,soft) * box(th,0.05,0.95,soft);
+  // soft fill, front-right
+  col += vec3(0.95,0.95,1.0) * 1.3 * box(phi,0.45,1.15,soft) * box(th,-0.25,0.55,soft);
+  // brass rim strip, back-left
+  col += vec3(1.0,0.78,0.48) * 9.0 * box(phi,-2.65,-2.2,soft*0.7) * box(th,-0.75,1.0,soft);
+  // cool rim strip, back-right
+  col += vec3(0.88,0.9,1.0) * 7.0 * box(phi,2.2,2.6,soft*0.7) * box(th,-0.75,1.0,soft);
+  // overhead spotlight
+  col += vec3(1.0,0.95,0.88) * 3.0 * smoothstep(1.05-soft,1.25+soft,th);
+  // floor bounce from plum velvet
+  col += vec3(0.06,0.025,0.045) * smoothstep(-0.1,-0.6,th);
+  return col;
+}
+
+vec3 blurEnv(vec3 r, float rough){
+  vec3 t = normalize(abs(r.y) < 0.99 ? cross(r, vec3(0,1,0)) : cross(r, vec3(1,0,0)));
+  vec3 b = cross(r, t);
+  vec3 acc = env(r, rough);
+  acc += env(normalize(r + rough*0.6*t), rough);
+  acc += env(normalize(r - rough*0.6*t), rough);
+  acc += env(normalize(r + rough*0.6*b), rough);
+  acc += env(normalize(r - rough*0.6*b), rough);
+  return acc/5.0;
+}
+
+vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
+
+vec4 shade(vec2 frag){
+  vec2 uv = frag/uRes;
+  vec3 ro = vec3(mix(uFrame.x,uFrame.y,uv.x), mix(uFrame.z,uFrame.w,uv.y), 3.0);
+  vec3 rd = vec3(0.0,0.0,-1.0);
+  // quick bounding test
+  if(ro.y < -0.06 || ro.y > 1.95*uHeight || abs(ro.x) > 0.45) return vec4(0.0);
+  float t = 2.4;
+  vec2 h = vec2(1.0);
+  bool hit = false;
+  for(int i=0;i<140;i++){
+    h = map(ro + rd*t);
+    if(h.x < 0.0004){ hit = true; break; }
+    t += h.x*0.9;
+    if(t > 3.6) break;
+  }
+  if(!hit) return vec4(0.0);
+  vec3 p = ro + rd*t;
+  vec3 n = calcNormal(p);
+  float ao = calcAO(p, n);
+  vec3 v = -rd;
+  float cosv = clamp(dot(n,v),0.0,1.0);
+  vec3 r = reflect(rd, n);
+  vec3 col;
+  if(h.y < 1.5){
+    // black lacquer: tiny diffuse, strong clear-coat reflections
+    float F = 0.045 + (1.0-0.045)*pow(1.0-cosv, 5.0);
+    vec3 diff = vec3(0.010,0.009,0.010) * blurEnv(n, 0.5);
+    vec3 spec = F * blurEnv(r, 0.12);
+    col = (diff + spec) * mix(0.35, 1.0, ao);
+  } else {
+    // brushed brass stand
+    vec3 F0 = vec3(0.86,0.68,0.40);
+    vec3 F = F0 + (1.0-F0)*pow(1.0-cosv,5.0);
+    col = F * blurEnv(r, 0.22) * 0.55 * mix(0.25,1.0,ao);
+  }
+  col = aces(col*1.15);
+  col = pow(col, vec3(1.0/2.2));
+  return vec4(col, 1.0);
+}
+
+void main(){
+  vec4 acc = vec4(0.0);
+  float hits = 0.0;
+  for(int j=0;j<4;j++){ if(j>=uSamples) break;
+    for(int i=0;i<4;i++){ if(i>=uSamples) break;
+      vec2 o = (vec2(float(i),float(j))+0.5)/float(uSamples);
+      vec4 s = shade(floor(gl_FragCoord.xy) + o);
+      acc.rgb += s.rgb*s.a; hits += s.a;
+    }
+  }
+  float n = float(uSamples*uSamples);
+  float a = hits/n;
+  outColor = vec4(hits > 0.0 ? acc.rgb/hits : vec3(0.0), a);
+}
+</script>
+<script>
+// Renders the mannequin in horizontal strips so the slow software GPU never times out.
+window.renderMannequin = async function(opts){
+  const { width, height, female, yaw, frame, samples = 2, bodyWidth = 1, bodyHeight = 1, muscle = 0, base = 1 } = opts;
+  const canvas = document.getElementById('c');
+  canvas.width = width; canvas.height = height;
+  const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, preserveDrawingBuffer: true, antialias: false });
+  const vs = `#version 300 es
+  in vec2 p; void main(){ gl_Position = vec4(p,0.0,1.0); }`;
+  const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, mk(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, mk(gl.FRAGMENT_SHADER, document.getElementById('fs').textContent));
+  gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const u = (n) => gl.getUniformLocation(prog, n);
+  gl.uniform2f(u('uRes'), width, height);
+  gl.uniform4f(u('uFrame'), ...frame);
+  gl.uniform1f(u('uFemale'), female);
+  gl.uniform1f(u('uYaw'), yaw);
+  gl.uniform1f(u('uWidth'), bodyWidth);
+  gl.uniform1f(u('uHeight'), bodyHeight);
+  gl.uniform1f(u('uMuscle'), muscle);
+  gl.uniform1i(u('uSamples'), samples);
+  gl.uniform1f(u('uBase'), base);
+  gl.viewport(0,0,width,height);
+  gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.SCISSOR_TEST);
+  const strip = 48;
+  for(let y=0; y<height; y+=strip){
+    gl.scissor(0, y, width, Math.min(strip, height-y));
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.finish();
+    await new Promise(r => setTimeout(r, 0));
+  }
+  return canvas.toDataURL('image/png');
+};
+</script>
+</body>
+</html>

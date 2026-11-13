@@ -89,7 +89,7 @@ export interface Setting {
 
 // ---------- Database ----------
 
-export const db = new Dexie('wardrobemirror') as Dexie & {
+export const db = new Dexie('vitrine') as Dexie & {
   items: EntityTable<WardrobeItem, 'id'>
   images: EntityTable<ItemImage, 'id'>
   outfits: EntityTable<Outfit, 'id'>
