@@ -44,7 +44,7 @@ export default function App() {
     <div className="min-h-dvh">
       <UpdatePrompt />
       <div key={tab}>
-        {tab === 'wardrobe' && <WardrobeScreen onAdd={() => go('add')} />}
+        {tab === 'wardrobe' && <WardrobeScreen onAdd={() => go('add')} onTryOn={() => go('tryon')} />}
         {tab === 'tryon' && <TryOnScreen onAdd={() => go('add')} />}
         {tab === 'outfits' && <OutfitsScreen onCreate={() => go('tryon')} />}
         {tab === 'options' && <SettingsScreen status={status} />}

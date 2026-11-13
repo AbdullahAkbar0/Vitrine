@@ -42,7 +42,15 @@ export interface WardrobeItem {
   fitData: Record<string, FitData>
 }
 
-export type ImageKind = 'front-cutout' | 'back-cutout' | 'front-original' | 'back-original' | 'thumb' | 'detail'
+export type ImageKind =
+  | 'front-cutout'
+  | 'back-cutout'
+  | 'front-original'
+  | 'back-original'
+  | 'thumb'
+  | 'detail'
+  /** The piece fitted onto a mannequin. `variant` says which, e.g. "female:front". */
+  | 'fit'
 
 /**
  * Images are kept in their own table so the wardrobe list stays fast:
@@ -55,6 +63,10 @@ export interface ItemImage {
   blob: Blob
   label?: string
   order?: number
+  /** For fitted pictures: which mannequin and side, e.g. "female:front". */
+  variant?: string
+  /** For fitted pictures: where it sits on the mannequin picture (fractions 0..1). */
+  rect?: { x: number; y: number; w: number; h: number }
 }
 
 export interface OutfitLayer {

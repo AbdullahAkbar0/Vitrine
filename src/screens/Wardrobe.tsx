@@ -1,31 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type WardrobeItem } from '../db/db'
+import { db, type MannequinGender, type WardrobeItem } from '../db/db'
+import { useThumbs } from '../lib/hooks'
+import { wearItem } from '../lib/worn'
+import { ItemDetail } from './ItemDetail'
 import { t } from '../i18n'
 import mark from '../assets/mark.png'
 import { PlusIcon } from '../components/Icons'
 import { Mannequin, ShopWindow } from '../components/Window'
 import { Button, Screen } from '../components/ui'
 
-/** Small cut-out pictures for the grid (300px), loaded only for pieces on screen. */
-function useThumbs(items: WardrobeItem[] | undefined) {
-  const rows = useLiveQuery(
-    () => (items?.length ? db.images.where('[itemId+kind]').anyOf(items.map((i) => [i.id, 'thumb'])).toArray() : []),
-    [items],
-  )
-  const urls = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const r of rows ?? []) m.set(r.itemId, URL.createObjectURL(r.blob))
-    return m
-  }, [rows])
-  useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls])
-  return urls
-}
-
-function Piece({ item, url }: { item: WardrobeItem; url?: string }) {
+function Piece({ item, url, onOpen }: { item: WardrobeItem; url?: string; onOpen: () => void }) {
   const [loaded, setLoaded] = useState(false)
   return (
     <li>
+      <button type="button" onClick={onOpen} className="block w-full text-start">
       <figure>
         <div className="relative grid aspect-[4/5] place-items-center overflow-hidden rounded-[1.25rem] border border-line bg-surface p-3">
           {url && (
@@ -50,11 +39,13 @@ function Piece({ item, url }: { item: WardrobeItem; url?: string }) {
           <span className="truncate text-[0.9rem] text-ink">{item.name}</span>
         </figcaption>
       </figure>
+      </button>
     </li>
   )
 }
 
-export function WardrobeScreen({ onAdd }: { onAdd: () => void }) {
+export function WardrobeScreen({ onAdd, onTryOn }: { onAdd: () => void; onTryOn: () => void }) {
+  const [open, setOpen] = useState<string | null>(null)
   const items = useLiveQuery(() => db.items.orderBy('createdAt').reverse().toArray().catch(() => []), [])
   const count = items?.length ?? 0
   const thumbs = useThumbs(items)
@@ -100,9 +91,20 @@ export function WardrobeScreen({ onAdd }: { onAdd: () => void }) {
         {items && count > 0 && (
           <ul className="grid grid-cols-2 gap-x-3.5 gap-y-5 pt-2 sm:grid-cols-3">
             {items.map((item) => (
-              <Piece key={item.id} item={item} url={thumbs.get(item.id)} />
+              <Piece key={item.id} item={item} url={thumbs.get(item.id)} onOpen={() => setOpen(item.id)} />
             ))}
           </ul>
+        )}
+        {open && items?.find((i) => i.id === open) && (
+          <ItemDetail
+            item={items.find((i) => i.id === open)!}
+            onClose={() => setOpen(null)}
+            onTryOn={async (g: MannequinGender) => {
+              await wearItem(g, items.find((i) => i.id === open)!, items)
+              setOpen(null)
+              onTryOn()
+            }}
+          />
         )}
       </Screen>
     </>

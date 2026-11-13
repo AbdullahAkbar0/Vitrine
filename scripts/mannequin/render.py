@@ -26,6 +26,10 @@ JOBS = {
     'test-f': dict(female=1, yaw=0.0, width=240, height=566, samples=1),
     'test-m': dict(female=0, yaw=0.0, width=240, height=566, samples=1),
     'test-b': dict(female=1, yaw=math.pi, width=240, height=566, samples=1),
+    'shade-female-front': dict(female=1, yaw=0.0, shade=1, inflate=0.018, base=0, samples=2),
+    'shade-female-back': dict(female=1, yaw=math.pi, shade=1, inflate=0.018, base=0, samples=2),
+    'shade-male-front': dict(female=0, yaw=0.0, shade=1, inflate=0.018, base=0, samples=2),
+    'shade-male-back': dict(female=0, yaw=math.pi, shade=1, inflate=0.018, base=0, samples=2),
     'bust': dict(female=0.45, yaw=0.22, frame=[-0.3, 0.3, 1.14, 1.9], width=800, height=1013, base=0, samples=3),
 }
 

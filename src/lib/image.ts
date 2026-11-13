@@ -82,3 +82,48 @@ export async function encode(c: HTMLCanvasElement, opts: { transparent: boolean;
   if (!b) throw new Error('Could not save the image')
   return b
 }
+
+/** Turns a canvas clockwise by quarter turns. */
+export function rotateCanvas(src: HTMLCanvasElement, quarter: number): HTMLCanvasElement {
+  const q = ((quarter % 4) + 4) % 4
+  if (q === 0) return src
+  const c = makeCanvas(q % 2 ? src.height : src.width, q % 2 ? src.width : src.height)
+  const x = ctx2d(c)
+  x.translate(c.width / 2, c.height / 2)
+  x.rotate((q * Math.PI) / 2)
+  x.drawImage(src, -src.width / 2, -src.height / 2)
+  return c
+}
+
+export function imageDataToCanvas(img: ImageData): HTMLCanvasElement {
+  const c = makeCanvas(img.width, img.height)
+  ctx2d(c).putImageData(img, 0, 0)
+  return c
+}
+
+export function canvasToImageData(c: HTMLCanvasElement): ImageData {
+  return ctx2d(c).getImageData(0, 0, c.width, c.height)
+}
+
+export async function blobToImageData(blob: Blob): Promise<ImageData> {
+  const bmp = await createImageBitmap(blob)
+  const c = makeCanvas(bmp.width, bmp.height)
+  ctx2d(c).drawImage(bmp, 0, 0)
+  bmp.close?.()
+  return canvasToImageData(c)
+}
+
+/** Turns a one-byte-per-pixel mask clockwise by quarter turns. */
+export function rotateMask(mask: Uint8Array, w: number, h: number, quarter: number): Uint8Array {
+  const q = ((quarter % 4) + 4) % 4
+  if (q === 0) return mask
+  const nw = q % 2 ? h : w
+  const out = new Uint8Array(mask.length)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const [nx, ny] = q === 1 ? [h - 1 - y, x] : q === 2 ? [w - 1 - x, h - 1 - y] : [y, w - 1 - x]
+      out[ny * nw + nx] = mask[y * w + x]
+    }
+  }
+  return out
+}

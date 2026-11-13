@@ -6,7 +6,24 @@ import { t } from '../i18n'
 import { isToolReady, removeBackground, type BgProgress } from '../lib/bgremove'
 import { dominantColor, nameColor } from '../lib/colors'
 import { cleanMask, composeCutout, coverage } from '../lib/cutout'
-import { NotAnImageError, ctx2d, encode, fitToCanvas, loadImage, releaseImage } from '../lib/image'
+import {
+  NotAnImageError,
+  canvasToImageData,
+  ctx2d,
+  encode,
+  fitToCanvas,
+  loadImage,
+  releaseImage,
+  rotateCanvas,
+  rotateMask,
+} from '../lib/image'
+import { binFromAlpha, detectRotation, sharpness } from '../lib/fit/analyze'
+import { fitGarment } from '../lib/fit/fit'
+import { gendersFor, makeFitImage } from '../lib/fitStore'
+import { garmentKind } from '../config/fitRules'
+import { getSetting, type MannequinGender } from '../db/db'
+import { DressedMannequin } from '../components/Window'
+import { PrintPlacer, pastePrint, type Placement } from '../components/PrintPlacer'
 import { CategoryIcon } from '../components/CategoryIcons'
 import { EdgeEditor } from '../components/EdgeEditor'
 import { AlertIcon, CameraIcon, CheckIcon, PlusIcon } from '../components/Icons'
@@ -29,6 +46,23 @@ interface Processed {
   original: HTMLCanvasElement // max 1600px, kept as the original
   mask: Uint8Array
   manual: boolean // background removal failed; user erases by hand
+  turned: number // quarter turns applied automatically
+}
+
+/** Quarter-turns photo, original and mask together. */
+function turn(p: Processed, q: number): Processed {
+  if (!(((q % 4) + 4) % 4)) return p
+  const c = document.createElement('canvas')
+  c.width = p.photo.width
+  c.height = p.photo.height
+  ctx2d(c).putImageData(p.photo, 0, 0)
+  const photo = canvasToImageData(rotateCanvas(c, q))
+  return {
+    ...p,
+    photo,
+    original: rotateCanvas(p.original, q),
+    mask: rotateMask(p.mask, p.photo.width, p.photo.height, q),
+  }
 }
 type Stage = 'resize' | 'tool' | 'remove' | 'edges' | 'colour'
 
@@ -185,6 +219,19 @@ function PhotoFrame({ url }: { url?: string }) {
   )
 }
 
+/** A compact lit window for previews. */
+function ShopWindowSmall({ children }: { children: ReactNode }) {
+  return (
+    <div className="window-arch mx-auto h-[min(60dvh,520px)] max-w-sm bg-[linear-gradient(160deg,#f3e0b5,#c9a56c_30%,#7c5b2c_60%,#d9b984)] p-[2px]">
+      <div className="window-arch velvet relative h-full w-full overflow-hidden">
+        <div className="velvet-folds absolute inset-0" />
+        <div className="spotlight absolute inset-0" />
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // ---------- The wizard ----------
 
 export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit: () => void }) {
@@ -213,6 +260,14 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
   const [name, setName] = useState('')
   const [nameTouched, setNameTouched] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [mode, setMode] = useState<'fitted' | 'cutout'>('fitted')
+  const [fitted, setFitted] = useState<Partial<Record<Side, { url: string; rect: { x: number; y: number; w: number; h: number } }>>>({})
+  const [fitting, setFitting] = useState(false)
+  const [previewGender, setPreviewGender] = useState<MannequinGender>('female')
+  const [soft, setSoft] = useState(false)
+  const [printFor, setPrintFor] = useState<{ img: HTMLImageElement; file: Blob; canvas: HTMLCanvasElement } | null>(null)
+  const [printShots, setPrintShots] = useState<Blob[]>([])
+  const jobs = useRef<Partial<Record<Side, { shot: Shot; promise: Promise<Processed> }>>>({})
 
   const scrollTop = () => window.scrollTo({ top: 0 })
   const go = (n: number) => {
@@ -239,6 +294,15 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
     setNameTouched(false)
     setView('front')
     setConfirmClose(false)
+    setMode('fitted')
+    setFitted((f) => {
+      Object.values(f).forEach((v) => v && URL.revokeObjectURL(v.url))
+      return {}
+    })
+    setSoft(false)
+    setPrintFor(null)
+    setPrintShots([])
+    jobs.current = {}
   }
 
   const close = () => {
@@ -293,7 +357,21 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
     setStage('edges')
     const mask = cleanMask(raw, photo.width, photo.height)
     if (which === 'front') setStage('colour')
-    return { photo, original, mask, manual: false }
+    let result: Processed = { photo, original, mask, manual: false, turned: 0 }
+    // photos taken sideways or upside down are turned the right way up
+    const cut = composeCutout(photo, mask)
+    if (cut && sub && group) {
+      const q = detectRotation(binFromAlpha(canvasToImageData(cut)).bin, garmentKind(sub), group)
+      if (q) result = { ...turn(result, q), turned: q }
+    }
+    return result
+  }
+
+  /** Starts cutting out a photo straight away, so it is ready by the time the user gets to step 6. */
+  const startJob = (which: Side, s: Shot) => {
+    const promise = processSide(which, s)
+    promise.catch(() => undefined)
+    jobs.current[which] = { shot: s, promise }
   }
 
   const runProcessing = async () => {
@@ -307,10 +385,13 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
     for (const [which, s] of todo) {
       if (!s || result[which]) continue
       try {
-        result[which] = await processSide(which, s)
+        if (jobs.current[which]?.shot !== s) startJob(which, s)
+        setSide(which)
+        result[which] = await jobs.current[which]!.promise
         setProcessed({ ...result })
       } catch (e) {
         console.error(e)
+        jobs.current[which] = undefined // "Try again" starts a fresh attempt
         const message = e instanceof Error && e.message === t('add.offlineFirst') ? e.message : t('add.failed')
         setFailed({ side: which, message })
         return
@@ -325,6 +406,8 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
     }
     setView('front')
     setEditing(f.manual)
+    setMode(f.manual ? 'cutout' : 'fitted')
+    setSoft(sharpness(f.photo, f.mask) < 35)
     go(7)
   }
 
@@ -339,7 +422,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
     const work = fitToCanvas(original, 1400)
     const photo = ctx2d(work).getImageData(0, 0, work.width, work.height)
     const mask = new Uint8Array(photo.width * photo.height).fill(255)
-    const next = { ...processed, [which]: { photo, original, mask, manual: true } }
+    const next = { ...processed, [which]: { photo, original, mask, manual: true, turned: 0 } }
     setProcessed(next)
     setFailed(null)
     // continue with the other side if needed
@@ -353,8 +436,43 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
     }
     setView(which)
     setEditing(true)
+    setMode('cutout')
     go(7)
   }
+
+  // which mannequin shows the preview
+  useEffect(() => {
+    if (step !== 7) return
+    if (gender !== 'unisex') setPreviewGender(gender)
+    else getSetting<MannequinGender>('tryonGender', 'female').then(setPreviewGender).catch(() => undefined)
+  }, [step, gender])
+
+  // fit the piece on the mannequin whenever the cut-out changes
+  useEffect(() => {
+    if (step !== 7 || editing || !sub) return
+    const p = processed[view]
+    if (!p) return
+    let cancelled = false
+    setFitting(true)
+    const run = async () => {
+      const cut = composeCutout(p.photo, p.mask)
+      if (!cut) return
+      const r = await fitGarment(canvasToImageData(cut), sub, previewGender, view)
+      const blob = await new Promise<Blob | null>((res) => r.canvas.toBlob(res, 'image/png'))
+      if (cancelled || !blob) return
+      const url = URL.createObjectURL(blob)
+      setFitted((f) => {
+        if (f[view]) URL.revokeObjectURL(f[view]!.url)
+        return { ...f, [view]: { url, rect: r.rect } }
+      })
+    }
+    run()
+      .catch((e) => console.error(e))
+      .finally(() => !cancelled && setFitting(false))
+    return () => {
+      cancelled = true
+    }
+  }, [step, editing, processed, view, previewGender, sub])
 
   useEffect(() => {
     if (step === 6) runProcessing()
@@ -391,7 +509,17 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
         img('back-cutout', await encode(backCut, { transparent: true, quality: 0.9 }))
         img('back-original', await encode(processed.back.original, { transparent: false, quality: 0.85 }))
       }
+      for (const g of gendersFor({ gender })) {
+        images.push(await makeFitImage(id, canvasToImageData(frontCut), sub, g, 'front'))
+        if (backCut) images.push(await makeFitImage(id, canvasToImageData(backCut), sub, g, 'back'))
+      }
       let order = 0
+      for (const blob of printShots) {
+        const pi = await loadImage(blob)
+        const c = fitToCanvas(pi, 1600, pi.naturalWidth, pi.naturalHeight)
+        releaseImage(pi)
+        img('detail', await encode(c, { transparent: false, quality: 0.88 }), { label: t('add.printLabel'), order: order++ })
+      }
       for (const d of details) {
         const di = await loadImage(d.shot.file)
         const c = fitToCanvas(di, 1600, di.naturalWidth, di.naturalHeight)
@@ -524,6 +652,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                   if (isFront) setFront(ns)
                   else setBack(ns)
                   setProcessed((p) => ({ ...p, [isFront ? 'front' : 'back']: undefined }))
+                  startJob(isFront ? 'front' : 'back', ns)
                 })
               }
             />
@@ -654,61 +783,180 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
           </>
         )
       }
-      case 7:
+      case 7: {
+        const cur = processed[view]
+        const fit = fitted[view]
         return (
           <>
             <StepTitle title={t('add.reviewTitle')} hint={t('add.reviewHint')} />
             {processed.back && (
-              <div role="tablist" className="mb-4 flex rounded-full border border-line bg-surface p-1">
+              <div role="tablist" className="mb-3 flex rounded-full border border-line bg-surface p-1">
                 {(['front', 'back'] as const).map((sd) => (
                   <button
                     key={sd}
                     type="button"
                     role="tab"
                     aria-selected={view === sd}
-                    onClick={() => setView(sd)}
-                    className={`min-h-11 flex-1 rounded-full text-[0.95rem] ${view === sd ? 'brass-fill font-medium' : 'text-ink-2'}`}
+                    onClick={() => {
+                      setView(sd)
+                      setEditing(false)
+                      setPrintFor(null)
+                    }}
+                    className={`min-h-11 flex-1 rounded-full text-[0.95rem] ${view === sd ? 'bg-surface-2 font-medium text-ink' : 'text-ink-3'}`}
                   >
                     {t(sd === 'front' ? 'add.front' : 'add.back')}
                   </button>
                 ))}
               </div>
             )}
-            {current && (
-              <EdgeEditor
-                photo={current.photo}
-                mask={current.mask}
-                onChange={setMaskFor(view)}
-                editing={editing}
-                background={bg}
+            <div role="tablist" className="mb-4 flex rounded-full border border-line bg-surface p-1">
+              {(['fitted', 'cutout'] as const).map((md) => (
+                <button
+                  key={md}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === md}
+                  onClick={() => {
+                    setMode(md)
+                    if (md === 'fitted') setEditing(false)
+                  }}
+                  className={`min-h-11 flex-1 rounded-full text-[0.95rem] ${mode === md ? 'brass-fill font-medium' : 'text-ink-2'}`}
+                >
+                  {t(md === 'fitted' ? 'add.viewFitted' : 'add.viewCutout')}
+                </button>
+              ))}
+            </div>
+
+            {mode === 'fitted' && (
+              <>
+                <ShopWindowSmall>
+                  <DressedMannequin
+                    gender={previewGender}
+                    view={view}
+                    layers={fit ? [{ key: 'fit', url: fit.url, rect: fit.rect }] : []}
+                    className="absolute bottom-[2%] left-1/2 h-[94%] -translate-x-1/2"
+                  />
+                  {fitting && (
+                    <div className="absolute inset-x-0 bottom-6 flex justify-center">
+                      <span className="rounded-full bg-velvet-2/90 px-4 py-2 text-[0.85rem] text-ivory">{t('add.fitting')}</span>
+                    </div>
+                  )}
+                </ShopWindowSmall>
+                {gender === 'unisex' && (
+                  <div role="radiogroup" className="mx-auto mt-3 flex max-w-60 rounded-full border border-line bg-surface p-1">
+                    {(['female', 'male'] as const).map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        role="radio"
+                        aria-checked={previewGender === g}
+                        onClick={() => setPreviewGender(g)}
+                        className={`min-h-10 flex-1 rounded-full text-[0.9rem] ${previewGender === g ? 'bg-surface-2 font-medium text-ink' : 'text-ink-3'}`}
+                      >
+                        {t(g === 'female' ? 'tryon.female' : 'tryon.male')}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-3 text-center text-[0.9rem] leading-[1.5] text-ink-3">{t('add.fittedHint')}</p>
+              </>
+            )}
+
+            {mode === 'cutout' && cur && printFor && (
+              <PrintPlacer
+                preview={printFor.canvas}
+                closeup={printFor.img}
+                onCancel={() => setPrintFor(null)}
+                onApply={(pl: Placement) => {
+                  const photo = pastePrint(cur.photo, printFor.img, pl)
+                  setProcessed((p) => (p[view] ? { ...p, [view]: { ...p[view]!, photo } } : p))
+                  setPrintShots((all) => [...all, printFor.file])
+                  setPrintFor(null)
+                  setSoft(false)
+                  setMode('fitted')
+                }}
               />
             )}
-            {current?.manual && editing && <p className="mt-3 text-[0.9rem] text-ink-2">{t('add.manualHint')}</p>}
-            {lowCoverage && <ErrorNote>{t('add.emptyCut')}</ErrorNote>}
 
-            <div className="mt-4 flex items-center gap-2">
-              <div role="radiogroup" className="flex flex-1 rounded-full border border-line bg-surface p-1">
-                {(['white', 'velvet'] as const).map((b) => (
+            {mode === 'cutout' && cur && !printFor && (
+              <>
+                <EdgeEditor photo={cur.photo} mask={cur.mask} onChange={setMaskFor(view)} editing={editing} background={bg} />
+                {cur.manual && editing && <p className="mt-3 text-[0.9rem] text-ink-2">{t('add.manualHint')}</p>}
+                {lowCoverage && <ErrorNote>{t('add.emptyCut')}</ErrorNote>}
+                <div className="mt-4 flex items-center gap-2">
+                  <div role="radiogroup" className="flex flex-1 rounded-full border border-line bg-surface p-1">
+                    {(['white', 'velvet'] as const).map((b) => (
+                      <button
+                        key={b}
+                        type="button"
+                        role="radio"
+                        aria-checked={bg === b}
+                        onClick={() => setBg(b)}
+                        className={`min-h-11 flex-1 rounded-full text-[0.9rem] ${bg === b ? 'bg-surface-2 font-medium text-ink' : 'text-ink-3'}`}
+                      >
+                        {t(b === 'white' ? 'add.onWhite' : 'add.onVelvet')}
+                      </button>
+                    ))}
+                  </div>
                   <button
-                    key={b}
                     type="button"
-                    role="radio"
-                    aria-checked={bg === b}
-                    onClick={() => setBg(b)}
-                    className={`min-h-11 flex-1 rounded-full text-[0.9rem] ${bg === b ? 'bg-surface-2 font-medium text-ink' : 'text-ink-3'}`}
+                    onClick={() => setEditing((e) => !e)}
+                    className={`min-h-12 rounded-full px-5 text-[0.95rem] ${editing ? 'brass-fill font-medium' : 'border border-brass/50 text-ink'}`}
                   >
-                    {t(b === 'white' ? 'add.onWhite' : 'add.onVelvet')}
+                    {editing ? t('add.doneFixing') : t('add.fixEdges')}
                   </button>
-                ))}
+                </div>
+                {!editing && (
+                  <div className="mt-3 flex gap-2">
+                    {([-1, 1] as const).map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => setProcessed((p) => (p[view] ? { ...p, [view]: { ...turn(p[view]!, q), turned: 0 } } : p))}
+                        className="min-h-11 flex-1 rounded-full border border-line text-[0.9rem] text-ink"
+                      >
+                        {q < 0 ? '⟲ ' + t('add.rotateLeft') : t('add.rotateRight') + ' ⟳'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {cur.turned !== 0 && <p className="mt-3 text-[0.9rem] text-ink-2">{t('add.turned')}</p>}
+              </>
+            )}
+
+            {!printFor && (
+              <div className="mt-6">
+                {soft && view === 'front' && <p className="mb-3 leading-[1.5] text-ink-2">{t('add.softPrint')}</p>}
+                <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full border border-dashed border-brass/60 px-4 text-[0.95rem] text-ink">
+                  <CameraIcon width={19} height={19} strokeWidth={1.5} className="text-brass" />
+                  {t('add.addPrint')}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0]
+                      e.target.value = ''
+                      if (!f || !cur) return
+                      try {
+                        const img = await loadImage(f)
+                        const full = new ImageData(new Uint8ClampedArray(cur.photo.data), cur.photo.width, cur.photo.height)
+                        for (let i = 0; i < cur.mask.length; i++) full.data[i * 4 + 3] = cur.mask[i]
+                        const c = document.createElement('canvas')
+                        c.width = full.width
+                        c.height = full.height
+                        ctx2d(c).putImageData(full, 0, 0)
+                        setEditing(false)
+                        setMode('cutout')
+                        setPrintFor({ img, file: f, canvas: c })
+                      } catch {
+                        setError(t('add.notImage'))
+                      }
+                    }}
+                  />
+                </label>
               </div>
-              <button
-                type="button"
-                onClick={() => setEditing((e) => !e)}
-                className={`min-h-12 rounded-full px-5 text-[0.95rem] ${editing ? 'brass-fill font-medium' : 'border border-brass/50 text-ink'}`}
-              >
-                {editing ? t('add.doneFixing') : t('add.fixEdges')}
-              </button>
-            </div>
+            )}
 
             <label className="mt-7 block">
               <span className="text-[0.95rem] text-ink-2">{t('add.nameLabel')}</span>
@@ -732,6 +980,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
             {error && <ErrorNote>{error}</ErrorNote>}
           </>
         )
+      }
     }
   })()
 

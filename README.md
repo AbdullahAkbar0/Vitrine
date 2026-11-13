@@ -27,7 +27,8 @@ The current mannequins are rendered by `scripts/mannequin/render.html` (run `pyt
 - [x] Stage 1 – Setup, installable app, tabs, empty screens, on-phone database
 - [x] Stage 1b – Vitrine redesign: name, logo, rendered mannequins, boutique-window look
 - [x] Stage 2 – Add a piece: camera/gallery, on-phone background removal, fix-edges brush, save
-- [ ] Stage 3 – Wardrobe grid, filters, search, item details
+- [x] Stage 2b – Fitting: pieces are reshaped onto the mannequin (collar, shoulders, sleeves, legs) with body shading; auto-turn of sideways/upside-down photos; print close-ups; piece pages; working Try-on with layering and mirror
+- [ ] Stage 3 – Wardrobe filters, search, editing
 - [ ] Stage 4 – Mannequins and Try-On canvas
 - [ ] Stage 5 – Mirror back view, shading, remembered fit
 - [ ] Stage 6 – Saved outfits, export, backup/restore, storage meter
@@ -44,5 +45,7 @@ node scripts/make-icons.mjs           # regenerate logo, icons and splash screen
 ```
 
 Tech: React + TypeScript + Vite, Tailwind CSS, Dexie (IndexedDB), vite-plugin-pwa.
+How fitting works: `src/lib/fit/` measures the garment outline (`analyze.ts`), then bends the real photo onto the mannequin landmarks in `src/config/mannequinRig.json` (`fit.ts`, thin-plate spline per body part) and applies body shading from `public/mannequins/shade-*.png`. Layer order is in `src/config/fitRules.ts`. If you replace the mannequin pictures, re-run `python3 scripts/mannequin/rig.py`.
+
 All visible text lives in `src/i18n/en.ts`. Database schema and migrations live in `src/db/db.ts`.
 Pushing to `main` publishes the app to GitHub Pages automatically (`.github/workflows/deploy.yml`).
