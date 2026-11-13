@@ -26,7 +26,7 @@ The current mannequins are rendered by `scripts/mannequin/render.html` (run `pyt
 
 - [x] Stage 1 – Setup, installable app, tabs, empty screens, on-phone database
 - [x] Stage 1b – Vitrine redesign: name, logo, rendered mannequins, boutique-window look
-- [ ] Stage 2 – Add Item wizard (camera/gallery, background removal)
+- [x] Stage 2 – Add a piece: camera/gallery, on-phone background removal, fix-edges brush, save
 - [ ] Stage 3 – Wardrobe grid, filters, search, item details
 - [ ] Stage 4 – Mannequins and Try-On canvas
 - [ ] Stage 5 – Mirror back view, shading, remembered fit

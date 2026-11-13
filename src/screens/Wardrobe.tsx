@@ -1,13 +1,63 @@
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db/db'
+import { db, type WardrobeItem } from '../db/db'
 import { t } from '../i18n'
 import mark from '../assets/mark.png'
 import { PlusIcon } from '../components/Icons'
 import { Mannequin, ShopWindow } from '../components/Window'
 import { Button, Screen } from '../components/ui'
 
+/** Small cut-out pictures for the grid (300px), loaded only for pieces on screen. */
+function useThumbs(items: WardrobeItem[] | undefined) {
+  const rows = useLiveQuery(
+    () => (items?.length ? db.images.where('[itemId+kind]').anyOf(items.map((i) => [i.id, 'thumb'])).toArray() : []),
+    [items],
+  )
+  const urls = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of rows ?? []) m.set(r.itemId, URL.createObjectURL(r.blob))
+    return m
+  }, [rows])
+  useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls])
+  return urls
+}
+
+function Piece({ item, url }: { item: WardrobeItem; url?: string }) {
+  const [loaded, setLoaded] = useState(false)
+  return (
+    <li>
+      <figure>
+        <div className="relative grid aspect-[4/5] place-items-center overflow-hidden rounded-[1.25rem] border border-line bg-surface p-3">
+          {url && (
+            <img
+              src={url}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              onLoad={() => setLoaded(true)}
+              className={`max-h-full max-w-full object-contain drop-shadow-[0_10px_14px_rgba(27,13,23,0.18)] transition-opacity duration-300 ${
+                loaded ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+          )}
+        </div>
+        <figcaption className="mt-2 flex items-center gap-2 px-1">
+          <span
+            className="size-3 shrink-0 rounded-full border border-line"
+            style={{ background: item.dominantColor }}
+            aria-hidden
+          />
+          <span className="truncate text-[0.9rem] text-ink">{item.name}</span>
+        </figcaption>
+      </figure>
+    </li>
+  )
+}
+
 export function WardrobeScreen({ onAdd }: { onAdd: () => void }) {
-  const count = useLiveQuery(() => db.items.count().catch(() => 0), [], 0)
+  const items = useLiveQuery(() => db.items.orderBy('createdAt').reverse().toArray().catch(() => []), [])
+  const count = items?.length ?? 0
+  const thumbs = useThumbs(items)
 
   return (
     <>
@@ -24,7 +74,7 @@ export function WardrobeScreen({ onAdd }: { onAdd: () => void }) {
       </header>
 
       <Screen>
-        {count === 0 && (
+        {items && count === 0 && (
           <div className="pt-2">
             <ShopWindow className="mx-auto h-[clamp(300px,47dvh,470px)] w-full max-w-sm">
               <Mannequin
@@ -45,6 +95,14 @@ export function WardrobeScreen({ onAdd }: { onAdd: () => void }) {
               </Button>
             </div>
           </div>
+        )}
+
+        {items && count > 0 && (
+          <ul className="grid grid-cols-2 gap-x-3.5 gap-y-5 pt-2 sm:grid-cols-3">
+            {items.map((item) => (
+              <Piece key={item.id} item={item} url={thumbs.get(item.id)} />
+            ))}
+          </ul>
         )}
       </Screen>
     </>
