@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0" stop-color="#F4EFEA"/>
+      <stop offset="1" stop-color="#DCD3CA"/>
+    </radialGradient>
+    <linearGradient id="mirror" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#C9824F"/>
+      <stop offset="1" stop-color="#8E4B26"/>
+    </linearGradient>
+    <radialGradient id="head" cx="38%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#4A4643"/>
+      <stop offset="0.45" stop-color="#1C1A19"/>
+      <stop offset="1" stop-color="#050505"/>
+    </radialGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#070707"/>
+      <stop offset="0.35" stop-color="#2E2B29"/>
+      <stop offset="0.55" stop-color="#1A1817"/>
+      <stop offset="1" stop-color="#040404"/>
+    </linearGradient>
+    <linearGradient id="neck" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0A0A0A"/>
+      <stop offset="0.4" stop-color="#2A2725"/>
+      <stop offset="1" stop-color="#080808"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- mirror frame -->
+  <ellipse cx="256" cy="246" rx="150" ry="196" fill="none" stroke="url(#mirror)" stroke-width="10"/>
+  <!-- bust -->
+  <path d="M256 300 C 214 300 176 312 150 334 C 128 352 118 380 116 420 L 116 512 L 396 512 L 396 420 C 394 380 384 352 362 334 C 336 312 298 300 256 300 Z" fill="url(#body)"/>
+  <!-- neck -->
+  <path d="M232 252 L 280 252 L 284 312 C 272 320 240 320 228 312 Z" fill="url(#neck)"/>
+  <!-- egg head -->
+  <ellipse cx="256" cy="186" rx="58" ry="76" fill="url(#head)"/>
+  <ellipse cx="236" cy="152" rx="16" ry="28" fill="#FFFFFF" opacity="0.18" transform="rotate(-18 236 152)"/>
+  <path d="M176 360 C 196 340 226 330 252 328" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="6" fill="none" stroke-linecap="round"/>
+</svg>

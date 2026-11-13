@@ -1,0 +1,108 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/fraunces';
+
+/* Colors live here so light and dark mode can swap them in one place. */
+:root {
+  --c-bg: #f7f4f1;
+  --c-surface: #ffffff;
+  --c-surface-2: #efeae5;
+  --c-line: #e3dcd5;
+  --c-ink: #1c1a19;
+  --c-ink-2: #5f5852;
+  --c-ink-3: #8a827b;
+  --c-accent: #9a4f2c;
+  --c-accent-soft: #f3e4da;
+  --c-on-accent: #ffffff;
+  --c-warn: #a5481b;
+  --c-warn-soft: #fbe9df;
+  --c-ok: #2f6b48;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #121110;
+    --c-surface: #1c1a19;
+    --c-surface-2: #262321;
+    --c-line: #34302d;
+    --c-ink: #f4efea;
+    --c-ink-2: #c3bab2;
+    --c-ink-3: #8f8780;
+    --c-accent: #e0a07a;
+    --c-accent-soft: #3a2a20;
+    --c-on-accent: #1c1a19;
+    --c-warn: #f0a07a;
+    --c-warn-soft: #3b231a;
+    --c-ok: #8fd1a8;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-line: var(--c-line);
+  --color-ink: var(--c-ink);
+  --color-ink-2: var(--c-ink-2);
+  --color-ink-3: var(--c-ink-3);
+  --color-accent: var(--c-accent);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-on-accent: var(--c-on-accent);
+  --color-warn: var(--c-warn);
+  --color-warn-soft: var(--c-warn-soft);
+  --color-ok: var(--c-ok);
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fraunces Variable', Georgia, serif;
+}
+
+/* Text sizes use rem, so the phone's "large text" setting scales the app. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-rise {
+  animation: rise 260ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
