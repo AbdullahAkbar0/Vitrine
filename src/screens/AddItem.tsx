@@ -22,11 +22,11 @@ import { fitGarment } from '../lib/fit/fit'
 import { gendersFor, makeFitImage } from '../lib/fitStore'
 import { garmentKind } from '../config/fitRules'
 import { getSetting, type MannequinGender } from '../db/db'
-import { DressedMannequin } from '../components/Window'
+import { DressedMannequin, Studio } from '../components/Window'
 import { PrintPlacer, pastePrint, type Placement } from '../components/PrintPlacer'
 import { CategoryIcon } from '../components/CategoryIcons'
 import { EdgeEditor } from '../components/EdgeEditor'
-import { AlertIcon, CameraIcon, CheckIcon, PlusIcon } from '../components/Icons'
+import { AlertIcon, CameraIcon, CheckIcon, ChevronLeftIcon, CloseIcon, ImageIcon, LockIcon, PlusIcon, RotateLeftIcon, RotateRightIcon, BrushIcon } from '../components/Icons'
 import { Button } from '../components/ui'
 
 // ---------- Types ----------
@@ -71,32 +71,38 @@ const shot = (file: Blob): Shot => ({ file, url: URL.createObjectURL(file) })
 
 // ---------- Small building blocks ----------
 
+const STEP_NAMES = ['add.sType', 'add.sWho', 'add.sFront', 'add.sBack', 'add.sDetails', 'add.sCut', 'add.sCheck'] as const
+
 function WizardHeader({ step, onBack, onClose }: { step: number; onBack?: () => void; onClose: () => void }) {
   return (
-    <header className="pt-safe sticky top-0 z-20 bg-bg/85 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-xl items-center justify-between px-4 pt-3">
+    <header className="pt-safe sticky top-0 z-20 bg-bg/90 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-xl items-center justify-between gap-2 px-3 pt-2">
         <button
           type="button"
           onClick={onBack}
           disabled={!onBack}
-          className="min-h-11 rounded-full px-3 text-[0.95rem] text-ink-2 disabled:invisible"
+          aria-label={t('add.back')}
+          className="grid size-11 place-items-center rounded-full bg-surface text-ink shadow-[inset_0_0_0_1.5px_var(--c-line)] disabled:invisible"
         >
-          ‹ {t('add.back')}
+          <ChevronLeftIcon width={20} height={20} />
         </button>
-        <span className="text-[0.85rem] text-ink-3">{t('add.stepOf', { n: step, total: STEPS })}</span>
+        <div className="text-center">
+          <p className="text-[0.75rem] font-semibold text-ink-3">{t('add.stepOf', { n: step, total: STEPS })}</p>
+          <p className="text-[0.95rem] font-semibold">{t(STEP_NAMES[step - 1])}</p>
+        </div>
         <button
           type="button"
           onClick={onClose}
           aria-label={t('add.close')}
-          className="grid size-11 place-items-center rounded-full text-ink-2"
+          className="grid size-11 place-items-center rounded-full bg-surface text-ink shadow-[inset_0_0_0_1.5px_var(--c-line)]"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
-            <path d="M6 6l12 12M18 6 6 18" />
-          </svg>
+          <CloseIcon width={19} height={19} />
         </button>
       </div>
-      <div className="mx-auto mt-2 h-px max-w-xl bg-line">
-        <div className="brass-fill h-px transition-[width] duration-500" style={{ width: `${(step / STEPS) * 100}%` }} />
+      <div className="mx-auto mt-2.5 flex max-w-xl gap-1 px-4 pb-2" aria-hidden>
+        {Array.from({ length: STEPS }, (_, i) => (
+          <span key={i} className={`h-1 flex-1 rounded-full transition-colors duration-300 ${i < step ? 'bg-primary' : 'bg-surface-2'}`} />
+        ))}
       </div>
     </header>
   )
@@ -105,16 +111,16 @@ function WizardHeader({ step, onBack, onClose }: { step: number; onBack?: () => 
 function StepTitle({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="mb-6">
-      <h1 className="font-display text-[1.9rem] leading-[1.1] font-normal tracking-[-0.01em]">{title}</h1>
+      <h1 className="font-display text-[1.75rem] leading-[1.12] font-bold">{title}</h1>
       {hint && <p className="mt-2 leading-[1.55] text-ink-2">{hint}</p>}
     </div>
   )
 }
 
-/** The action bar that sits above the bottom dock. */
+/** The action bar that sits above the bottom bar. */
 function ActionBar({ children }: { children: ReactNode }) {
   return (
-    <div className="mb-safe fixed inset-x-0 bottom-[5.25rem] z-20 px-4">
+    <div className="fixed inset-x-0 bottom-[calc(4.6rem+env(safe-area-inset-bottom))] z-20 bg-gradient-to-t from-bg via-bg/90 to-transparent px-4 pt-6 pb-3">
       <div className="mx-auto flex max-w-md items-center gap-3">{children}</div>
     </div>
   )
@@ -127,10 +133,11 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
       role="radio"
       aria-checked={on}
       onClick={onClick}
-      className={`min-h-12 rounded-full border px-5 text-[0.95rem] transition-colors ${
-        on ? 'brass-fill border-transparent font-medium' : 'border-line bg-surface text-ink'
+      className={`inline-flex min-h-12 items-center gap-1.5 rounded-2xl px-4 text-[0.95rem] font-medium transition-colors ${
+        on ? 'bg-ink text-bg' : 'bg-surface text-ink shadow-[inset_0_0_0_1.5px_var(--c-line)]'
       }`}
     >
+      {on && <CheckIcon width={16} height={16} />}
       {children}
     </button>
   )
@@ -138,7 +145,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 
 function ErrorNote({ children }: { children: ReactNode }) {
   return (
-    <p role="alert" className="mt-4 flex gap-2.5 rounded-2xl border border-warn/30 px-4 py-3 text-[0.95rem] text-warn">
+    <p role="alert" className="mt-4 flex gap-2.5 rounded-2xl bg-warn/10 px-4 py-3 text-[0.95rem] text-warn">
       <AlertIcon width={20} height={20} className="mt-0.5 shrink-0" />
       <span>{children}</span>
     </p>
@@ -146,24 +153,23 @@ function ErrorNote({ children }: { children: ReactNode }) {
 }
 
 function PhotoTips() {
-  const tips = ['add.tip1', 'add.tip2', 'add.tip3', 'add.tip4'] as const
+  const tips = [
+    { k: 'add.tip1', tint: 'tint-bottoms' },
+    { k: 'add.tip2', tint: 'tint-tops' },
+    { k: 'add.tip3', tint: 'tint-outerwear' },
+    { k: 'add.tip4', tint: 'tint-footwear' },
+  ] as const
   return (
-    <details className="group mt-6 rounded-2xl border border-line px-4">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between text-[0.95rem] text-ink">
-        {t('add.tipsToggle')}
-        <span className="text-brass transition-transform group-open:rotate-45" aria-hidden>
-          +
-        </span>
-      </summary>
-      <ul className="space-y-2.5 pb-4 text-[0.95rem] leading-[1.5] text-ink-2">
-        {tips.map((k) => (
-          <li key={k} className="flex gap-3">
-            <span className="mt-[0.65rem] h-px w-3.5 shrink-0 bg-brass" aria-hidden />
+    <section className="mt-7">
+      <h2 className="mb-3 text-[0.8rem] font-semibold text-ink-3">{t('add.tipsToggle')}</h2>
+      <div className="no-scrollbar -mx-5 flex gap-2.5 overflow-x-auto px-5 pb-1">
+        {tips.map(({ k, tint }) => (
+          <p key={k} className={`${tint} w-40 shrink-0 rounded-2xl p-3.5 text-[0.88rem] leading-[1.45] font-medium`}>
             {t(k)}
-          </li>
+          </p>
         ))}
-      </ul>
-    </details>
+      </div>
+    </section>
   )
 }
 
@@ -180,56 +186,65 @@ function PhotoPicker({ onPick, hasPhoto }: { onPick: (file: File) => void; hasPh
     <div>
       <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={pick} />
       <input ref={galRef} type="file" accept="image/*" className="hidden" onChange={pick} />
-      <div className="flex flex-col gap-3">
-        <Button onClick={() => camRef.current?.click()} variant={hasPhoto ? 'outline' : 'brass'} className="w-full">
-          <CameraIcon width={21} height={21} strokeWidth={1.5} /> {t('add.takePhoto')}
-        </Button>
-        <Button onClick={() => galRef.current?.click()} variant="outline" className="w-full">
-          {hasPhoto ? t('add.retake') : t('add.choosePhoto')}
-        </Button>
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => camRef.current?.click()}
+          className={`flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl font-semibold transition-transform active:scale-[0.97] ${
+            hasPhoto ? 'bg-surface text-ink shadow-[inset_0_0_0_1.5px_var(--c-line)]' : 'bg-primary text-on-primary shadow-[0_8px_20px_-10px_var(--c-primary)]'
+          }`}
+        >
+          <CameraIcon width={26} height={26} />
+          {t('add.takePhoto')}
+        </button>
+        <button
+          type="button"
+          onClick={() => galRef.current?.click()}
+          className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl bg-surface font-semibold text-ink shadow-[inset_0_0_0_1.5px_var(--c-line)] transition-transform active:scale-[0.97]"
+        >
+          <ImageIcon width={26} height={26} />
+          {hasPhoto ? t('add.retakeShort') : t('add.choosePhoto')}
+        </button>
       </div>
-      <p className="mt-3 text-center text-[0.85rem] leading-[1.5] text-ink-3">{t('add.cameraNote')}</p>
+      <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[0.82rem] leading-[1.5] text-ink-3">
+        <LockIcon width={14} height={14} /> {t('add.cameraNote')}
+      </p>
     </div>
   )
 }
 
-/** Arch-shaped frame that shows the chosen photo, or a dashed placeholder. */
+/** Viewfinder-style frame that shows the chosen photo, or a dashed garment placeholder. */
 function PhotoFrame({ url }: { url?: string }) {
+  const corner = 'absolute size-7 border-primary'
   return (
-    <div className="mx-auto mb-6 w-52">
-      <div className="window-arch bg-[linear-gradient(160deg,#f3e0b5,#c9a56c_30%,#7c5b2c_60%,#d9b984)] p-[2px]">
-        <div className="window-arch velvet relative grid aspect-[3/4] place-items-center overflow-hidden">
-          {url ? (
-            <img src={url} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <svg viewBox="0 0 200 200" className="w-[58%]" aria-hidden>
-              <path
-                d="M70 30 C 78 42 122 42 130 30 L 168 48 C 172 50 174 54 172 58 L 160 84 C 158 88 154 89 150 87 L 140 82 L 140 168 C 140 172 137 175 133 175 L 67 175 C 63 175 60 172 60 168 L 60 82 L 50 87 C 46 89 42 88 40 84 L 28 58 C 26 54 28 50 32 48 Z"
-                fill="none"
-                stroke="#d6b47c"
-                strokeWidth="1.5"
-                strokeDasharray="4 5"
-                strokeLinejoin="round"
-              />
-            </svg>
-          )}
-        </div>
+    <div className="relative mx-auto mb-6 aspect-[4/5] w-[min(16rem,70vw)]">
+      <div className="absolute inset-2 overflow-hidden rounded-[1.4rem] bg-surface-2">
+        {url ? (
+          <img src={url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <svg viewBox="0 0 200 200" className="absolute inset-0 m-auto w-[62%]" aria-hidden>
+            <path
+              d="M70 30 C 78 42 122 42 130 30 L 168 48 C 172 50 174 54 172 58 L 160 84 C 158 88 154 89 150 87 L 140 82 L 140 168 C 140 172 137 175 133 175 L 67 175 C 63 175 60 172 60 168 L 60 82 L 50 87 C 46 89 42 88 40 84 L 28 58 C 26 54 28 50 32 48 Z"
+              fill="var(--c-surface)"
+              stroke="var(--c-primary)"
+              strokeWidth="2.2"
+              strokeDasharray="6 6"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
       </div>
+      <span className={`${corner} top-0 left-0 rounded-tl-[1.2rem] border-t-[3px] border-l-[3px]`} />
+      <span className={`${corner} top-0 right-0 rounded-tr-[1.2rem] border-t-[3px] border-r-[3px]`} />
+      <span className={`${corner} bottom-0 left-0 rounded-bl-[1.2rem] border-b-[3px] border-l-[3px]`} />
+      <span className={`${corner} right-0 bottom-0 rounded-br-[1.2rem] border-r-[3px] border-b-[3px]`} />
     </div>
   )
 }
 
-/** A compact lit window for previews. */
+/** The fitting-room backdrop for previews. */
 function ShopWindowSmall({ children }: { children: ReactNode }) {
-  return (
-    <div className="window-arch mx-auto h-[min(60dvh,520px)] max-w-sm bg-[linear-gradient(160deg,#f3e0b5,#c9a56c_30%,#7c5b2c_60%,#d9b984)] p-[2px]">
-      <div className="window-arch velvet relative h-full w-full overflow-hidden">
-        <div className="velvet-folds absolute inset-0" />
-        <div className="spotlight absolute inset-0" />
-        {children}
-      </div>
-    </div>
-  )
+  return <Studio className="mx-auto h-[min(60dvh,520px)] max-w-sm">{children}</Studio>
 }
 
 // ---------- The wizard ----------
@@ -256,7 +271,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
   // review
   const [view, setView] = useState<Side>('front')
   const [editing, setEditing] = useState(false)
-  const [bg, setBg] = useState<'white' | 'velvet'>('white')
+  const [bg, setBg] = useState<'light' | 'dark'>('light')
   const [name, setName] = useState('')
   const [nameTouched, setNameTouched] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -589,11 +604,11 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                       setGroup(c.id)
                       if (!c.items.some((i) => i.id === sub)) setSub(null)
                     }}
-                    className={`flex aspect-square flex-col items-center justify-center gap-2 rounded-[1.25rem] border text-[0.9rem] transition-colors ${
-                      on ? 'border-brass bg-surface text-ink shadow-[inset_0_0_0_1px_var(--c-brass)]' : 'border-line bg-surface text-ink-2'
+                    className={`tint-${c.id} flex aspect-square flex-col items-center justify-center gap-2 rounded-[1.25rem] text-[0.9rem] font-semibold transition ${
+                      on ? 'shadow-[inset_0_0_0_2.5px_var(--t-ink)] scale-[1.02]' : ''
                     }`}
                   >
-                    <CategoryIcon id={c.id} className={`size-11 ${on ? 'text-brass' : ''}`} />
+                    <CategoryIcon id={c.id} className="size-11" />
                     {t(c.label)}
                   </button>
                 )
@@ -615,7 +630,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
         return (
           <>
             <StepTitle title={t('add.whoTitle')} />
-            <h2 className="mb-3 text-[0.95rem] text-ink-2">{t('add.whoGender')}</h2>
+            <h2 className="mb-3 text-[0.8rem] font-semibold text-ink-3">{t('add.whoGender')}</h2>
             <div role="radiogroup" className="flex flex-wrap gap-2.5">
               {GENDERS.map((o) => (
                 <Chip key={o.id} on={gender === o.id} onClick={() => setGender(o.id)}>
@@ -623,7 +638,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                 </Chip>
               ))}
             </div>
-            <h2 className="mt-8 mb-3 text-[0.95rem] text-ink-2">{t('add.whoStyle')}</h2>
+            <h2 className="mt-8 mb-3 text-[0.8rem] font-semibold text-ink-3">{t('add.whoStyle')}</h2>
             <div role="radiogroup" className="flex flex-wrap gap-2.5">
               {STYLES.map((o) => (
                 <Chip key={o.id} on={style === o.id} onClick={() => setStyle(o.id)}>
@@ -668,7 +683,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
             <StepTitle title={t('add.detailsTitle')} hint={t('add.detailsHint')} />
             <ul className="space-y-3">
               {details.map((d) => (
-                <li key={d.id} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-2.5">
+                <li key={d.id} className="card flex items-center gap-3 p-2.5">
                   <img src={d.shot.url} alt="" className="size-16 shrink-0 rounded-xl object-cover" />
                   <label className="flex-1">
                     <span className="sr-only">{t('add.detailLabel')}</span>
@@ -699,8 +714,8 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
               ))}
             </ul>
             {details.length < 4 && (
-              <label className="mt-3 flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-brass/50 text-[0.95rem] text-ink">
-                <PlusIcon width={20} height={20} strokeWidth={1.5} className="text-brass" />
+              <label className="mt-3 flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-primary/35 text-[0.95rem] font-semibold text-primary">
+                <PlusIcon width={20} height={20} strokeWidth={1.5} className="text-primary" />
                 {t('add.addDetail')}
                 <input
                   type="file"
@@ -742,7 +757,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
             {!failed && (
               <>
                 <div className="h-1 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(overall * 100)}>
-                  <div className="brass-fill h-full rounded-full transition-[width] duration-700" style={{ width: `${Math.max(4, overall * 100)}%` }} />
+                  <div className="bg-primary text-on-primary h-full rounded-full transition-[width] duration-700" style={{ width: `${Math.max(4, overall * 100)}%` }} />
                 </div>
                 <ul className="mt-6 space-y-3.5" aria-live="polite">
                   {stages.map((st) => {
@@ -753,9 +768,9 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                       <li key={st.id} className={`flex items-start gap-3 ${done ? 'text-ink' : now ? 'text-ink' : 'text-ink-3'}`}>
                         <span className="mt-0.5 grid size-5 shrink-0 place-items-center">
                           {done ? (
-                            <CheckIcon width={18} height={18} className="text-brass" />
+                            <CheckIcon width={18} height={18} className="text-primary" />
                           ) : now ? (
-                            <span className="size-2.5 animate-pulse rounded-full bg-brass" />
+                            <span className="size-2.5 animate-pulse rounded-full bg-primary" />
                           ) : (
                             <span className="size-1.5 rounded-full bg-ink-3/50" />
                           )}
@@ -773,7 +788,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                 <div className="mt-5 flex flex-col gap-3">
                   <Button onClick={runProcessing}>{t('add.tryAgain')}</Button>
                   {failed.message !== t('add.offlineFirst') && (
-                    <Button variant="outline" onClick={useOriginal}>
+                    <Button variant="secondary" onClick={useOriginal}>
                       {t('add.useOriginal')}
                     </Button>
                   )}
@@ -790,7 +805,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
           <>
             <StepTitle title={t('add.reviewTitle')} hint={t('add.reviewHint')} />
             {processed.back && (
-              <div role="tablist" className="mb-3 flex rounded-full border border-line bg-surface p-1">
+              <div role="tablist" className="mb-3 flex rounded-2xl bg-surface-2 p-1">
                 {(['front', 'back'] as const).map((sd) => (
                   <button
                     key={sd}
@@ -802,14 +817,14 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                       setEditing(false)
                       setPrintFor(null)
                     }}
-                    className={`min-h-11 flex-1 rounded-full text-[0.95rem] ${view === sd ? 'bg-surface-2 font-medium text-ink' : 'text-ink-3'}`}
+                    className={`min-h-10 flex-1 rounded-xl text-[0.92rem] font-semibold ${view === sd ? 'bg-surface text-ink shadow-[0_1px_3px_rgb(29_27_75/0.12)]' : 'text-ink-3'}`}
                   >
                     {t(sd === 'front' ? 'add.front' : 'add.back')}
                   </button>
                 ))}
               </div>
             )}
-            <div role="tablist" className="mb-4 flex rounded-full border border-line bg-surface p-1">
+            <div role="tablist" className="mb-4 flex rounded-2xl bg-surface-2 p-1">
               {(['fitted', 'cutout'] as const).map((md) => (
                 <button
                   key={md}
@@ -820,7 +835,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                     setMode(md)
                     if (md === 'fitted') setEditing(false)
                   }}
-                  className={`min-h-11 flex-1 rounded-full text-[0.95rem] ${mode === md ? 'brass-fill font-medium' : 'text-ink-2'}`}
+                  className={`min-h-10 flex-1 rounded-xl text-[0.92rem] font-semibold ${mode === md ? 'bg-primary text-on-primary' : 'text-ink-3'}`}
                 >
                   {t(md === 'fitted' ? 'add.viewFitted' : 'add.viewCutout')}
                 </button>
@@ -838,12 +853,12 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                   />
                   {fitting && (
                     <div className="absolute inset-x-0 bottom-6 flex justify-center">
-                      <span className="rounded-full bg-velvet-2/90 px-4 py-2 text-[0.85rem] text-ivory">{t('add.fitting')}</span>
+                      <span className="rounded-full bg-ink/80 px-4 py-2 text-[0.85rem] font-medium text-bg">{t('add.fitting')}</span>
                     </div>
                   )}
                 </ShopWindowSmall>
                 {gender === 'unisex' && (
-                  <div role="radiogroup" className="mx-auto mt-3 flex max-w-60 rounded-full border border-line bg-surface p-1">
+                  <div role="radiogroup" className="mx-auto mt-3 flex max-w-60 rounded-2xl bg-surface-2 p-1">
                     {(['female', 'male'] as const).map((g) => (
                       <button
                         key={g}
@@ -851,7 +866,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                         role="radio"
                         aria-checked={previewGender === g}
                         onClick={() => setPreviewGender(g)}
-                        className={`min-h-10 flex-1 rounded-full text-[0.9rem] ${previewGender === g ? 'bg-surface-2 font-medium text-ink' : 'text-ink-3'}`}
+                        className={`min-h-10 flex-1 rounded-xl text-[0.9rem] font-semibold ${previewGender === g ? 'bg-surface text-ink shadow-[0_1px_3px_rgb(29_27_75/0.12)]' : 'text-ink-3'}`}
                       >
                         {t(g === 'female' ? 'tryon.female' : 'tryon.male')}
                       </button>
@@ -884,25 +899,26 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                 {cur.manual && editing && <p className="mt-3 text-[0.9rem] text-ink-2">{t('add.manualHint')}</p>}
                 {lowCoverage && <ErrorNote>{t('add.emptyCut')}</ErrorNote>}
                 <div className="mt-4 flex items-center gap-2">
-                  <div role="radiogroup" className="flex flex-1 rounded-full border border-line bg-surface p-1">
-                    {(['white', 'velvet'] as const).map((b) => (
+                  <div role="radiogroup" className="flex flex-1 rounded-2xl bg-surface-2 p-1">
+                    {(['light', 'dark'] as const).map((b) => (
                       <button
                         key={b}
                         type="button"
                         role="radio"
                         aria-checked={bg === b}
                         onClick={() => setBg(b)}
-                        className={`min-h-11 flex-1 rounded-full text-[0.9rem] ${bg === b ? 'bg-surface-2 font-medium text-ink' : 'text-ink-3'}`}
+                        className={`min-h-10 flex-1 rounded-xl text-[0.9rem] font-semibold ${bg === b ? 'bg-surface text-ink shadow-[0_1px_3px_rgb(29_27_75/0.12)]' : 'text-ink-3'}`}
                       >
-                        {t(b === 'white' ? 'add.onWhite' : 'add.onVelvet')}
+                        {t(b === 'light' ? 'add.onWhite' : 'add.onVelvet')}
                       </button>
                     ))}
                   </div>
                   <button
                     type="button"
                     onClick={() => setEditing((e) => !e)}
-                    className={`min-h-12 rounded-full px-5 text-[0.95rem] ${editing ? 'brass-fill font-medium' : 'border border-brass/50 text-ink'}`}
+                    className={`inline-flex min-h-12 items-center gap-2 rounded-2xl px-4 text-[0.95rem] font-semibold ${editing ? 'bg-primary text-on-primary' : 'bg-surface text-ink shadow-[inset_0_0_0_1.5px_var(--c-line)]'}`}
                   >
+                    {editing ? <CheckIcon width={18} height={18} /> : <BrushIcon width={18} height={18} />}
                     {editing ? t('add.doneFixing') : t('add.fixEdges')}
                   </button>
                 </div>
@@ -913,9 +929,10 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                         key={q}
                         type="button"
                         onClick={() => setProcessed((p) => (p[view] ? { ...p, [view]: { ...turn(p[view]!, q), turned: 0 } } : p))}
-                        className="min-h-11 flex-1 rounded-full border border-line text-[0.9rem] text-ink"
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-surface text-[0.9rem] font-semibold text-ink shadow-[inset_0_0_0_1.5px_var(--c-line)]"
                       >
-                        {q < 0 ? '⟲ ' + t('add.rotateLeft') : t('add.rotateRight') + ' ⟳'}
+                        {q < 0 ? <RotateLeftIcon width={18} height={18} /> : <RotateRightIcon width={18} height={18} />}
+                        {q < 0 ? t('add.rotateLeft') : t('add.rotateRight')}
                       </button>
                     ))}
                   </div>
@@ -927,8 +944,8 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
             {!printFor && (
               <div className="mt-6">
                 {soft && view === 'front' && <p className="mb-3 leading-[1.5] text-ink-2">{t('add.softPrint')}</p>}
-                <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full border border-dashed border-brass/60 px-4 text-[0.95rem] text-ink">
-                  <CameraIcon width={19} height={19} strokeWidth={1.5} className="text-brass" />
+                <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-primary/35 px-4 text-[0.95rem] font-semibold text-primary">
+                  <CameraIcon width={19} height={19} strokeWidth={1.5} className="text-primary" />
                   {t('add.addPrint')}
                   <input
                     type="file"
@@ -959,7 +976,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
             )}
 
             <label className="mt-7 block">
-              <span className="text-[0.95rem] text-ink-2">{t('add.nameLabel')}</span>
+              <span className="text-[0.8rem] font-semibold text-ink-3">{t('add.nameLabel')}</span>
               <input
                 value={name}
                 maxLength={60}
@@ -967,13 +984,13 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                   setName(e.target.value)
                   setNameTouched(true)
                 }}
-                className="mt-2 min-h-12 w-full rounded-2xl border border-line bg-surface px-4 text-[1rem] text-ink focus:border-brass focus:outline-none"
+                className="mt-2 min-h-13 w-full rounded-2xl bg-surface px-4 text-[1rem] font-medium text-ink shadow-[inset_0_0_0_1.5px_var(--c-line)] focus:shadow-[inset_0_0_0_2px_var(--c-primary)] focus:outline-none"
               />
             </label>
             <button
               type="button"
               onClick={() => go(view === 'front' ? 3 : 4)}
-              className="mt-5 min-h-11 text-[0.95rem] text-ink-2 underline decoration-brass/50 underline-offset-4"
+              className="mt-4 min-h-11 text-[0.95rem] font-semibold text-primary"
             >
               {t('add.retake')}
             </button>
@@ -999,7 +1016,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
         return (
           <>
             {!back && (
-              <Button variant="outline" className="flex-1 bg-bg/80 backdrop-blur" onClick={() => go(5)}>
+              <Button variant="secondary" className="flex-1 bg-bg/80 backdrop-blur" onClick={() => go(5)}>
                 {t('add.skip')}
               </Button>
             )}
@@ -1041,17 +1058,17 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
         </ActionBar>
       )}
       {confirmClose && (
-        <div className="fixed inset-0 z-40 flex items-end bg-black/45 p-4" onClick={() => setConfirmClose(false)}>
+        <div className="fixed inset-0 z-50 flex items-end bg-[rgb(18_18_40/0.45)] p-3" onClick={() => setConfirmClose(false)}>
           <div
             role="dialog"
             aria-modal="true"
-            className="mb-safe mx-auto w-full max-w-md rounded-[1.6rem] border border-line bg-surface p-6"
+            className="mb-safe mx-auto w-full max-w-md rounded-[1.75rem] bg-surface p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="font-display text-[1.4rem]">{t('add.discardTitle')}</p>
+            <p className="font-display text-[1.4rem] font-bold">{t('add.discardTitle')}</p>
             <p className="mt-2 text-ink-2">{t('add.discardBody')}</p>
             <div className="mt-6 flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setConfirmClose(false)}>
+              <Button variant="secondary" className="flex-1" onClick={() => setConfirmClose(false)}>
                 {t('add.keepEditing')}
               </Button>
               <Button

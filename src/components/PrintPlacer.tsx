@@ -87,7 +87,7 @@ export function PrintPlacer({
   return (
     <div>
       <p className="mb-3 leading-[1.5] text-ink-2">{t('add.printHint')}</p>
-      <div className="flex justify-center overflow-hidden rounded-[1.4rem] border border-line bg-white">
+      <div className="flex justify-center overflow-hidden checker rounded-[1.4rem]">
         <div ref={box} className="relative inline-block touch-none">
           <div ref={holder} />
           <div
@@ -95,7 +95,7 @@ export function PrintPlacer({
             onPointerMove={move}
             onPointerUp={up}
             onPointerCancel={up}
-            className="absolute cursor-move outline-2 outline-dashed outline-[#d6b47c]"
+            className="absolute cursor-move outline-2 outline-dashed outline-primary"
             style={{
               left: `${(p.cx - p.w / 2) * 100}%`,
               top: `${(p.cy - (p.w * ratio) / photoRatio / 2) * 100}%`,
@@ -116,7 +116,7 @@ export function PrintPlacer({
           max={100}
           value={Math.round(p.w * 100)}
           onChange={(e) => setP((q) => ({ ...q, w: Number(e.target.value) / 100 }))}
-          className="h-11 flex-1 accent-[var(--c-brass)]"
+          className="h-11 flex-1 accent-[var(--c-primary)]"
         />
       </label>
       <label className="flex items-center gap-4 text-[0.9rem] text-ink-2">
@@ -127,11 +127,11 @@ export function PrintPlacer({
           max={45}
           value={p.angle}
           onChange={(e) => setP((q) => ({ ...q, angle: Number(e.target.value) }))}
-          className="h-11 flex-1 accent-[var(--c-brass)]"
+          className="h-11 flex-1 accent-[var(--c-primary)]"
         />
       </label>
       <div className="mt-3 flex gap-3">
-        <Button variant="outline" className="flex-1" onClick={onCancel}>
+        <Button variant="secondary" className="flex-1" onClick={onCancel}>
           {t('add.printCancel')}
         </Button>
         <Button className="flex-1" onClick={() => onApply(p)}>

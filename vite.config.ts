@@ -81,15 +81,15 @@ export default defineConfig({
         name: 'Vitrine',
         short_name: 'Vitrine',
         description:
-          'Photograph your own clothes and style them on a black boutique mannequin. Everything stays on your phone.',
+          'Your closet on your phone: photograph your clothes, try outfits on a mannequin, save your looks. Everything stays on your device.',
         lang: 'en',
         dir: 'ltr',
         start_url: './',
         scope: './',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#1B0D17',
-        theme_color: '#1B0D17',
+        background_color: '#2B2794',
+        theme_color: '#F4F3F9',
         categories: ['lifestyle', 'shopping', 'utilities'],
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

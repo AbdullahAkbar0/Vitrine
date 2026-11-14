@@ -4,44 +4,23 @@ import { CATEGORIES } from '../config/categories'
 import { layerOf } from '../config/fitRules'
 import { db, getSetting, setSetting, type Category, type MannequinGender, type WardrobeItem } from '../db/db'
 import { t } from '../i18n'
+import type { TranslationKey } from '../i18n/en'
 import { useFits, useThumbs } from '../lib/hooks'
+import { OCCASIONS, saveLook } from '../lib/looks'
 import { addPiece, getWorn, setWorn } from '../lib/worn'
-import { PlusIcon } from '../components/Icons'
-import { DressedMannequin, Mirror, ShopWindow, type WornLayer } from '../components/Window'
-import { Screen, ScreenHeader } from '../components/ui'
+import { CheckIcon, PlusIcon } from '../components/Icons'
+import { MannequinStage, Mirror, type WornLayer } from '../components/Window'
+import { Button, Chip, Screen, ScreenHeader, Segmented, Sheet } from '../components/ui'
 
-function GenderToggle({ value, onChange }: { value: MannequinGender; onChange: (g: MannequinGender) => void }) {
-  const opts: { id: MannequinGender; label: string }[] = [
-    { id: 'female', label: t('tryon.female') },
-    { id: 'male', label: t('tryon.male') },
-  ]
-  return (
-    <div role="radiogroup" aria-label={t('tryon.mannequin')} className="flex rounded-full border border-line bg-surface p-1">
-      {opts.map((o) => {
-        const on = value === o.id
-        return (
-          <button
-            key={o.id}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            onClick={() => onChange(o.id)}
-            className={`min-h-10 rounded-full px-4 text-[0.9rem] tracking-[0.02em] transition-colors ${on ? 'brass-fill font-medium' : 'text-ink-2'}`}
-          >
-            {o.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-export function TryOnScreen({ onAdd }: { onAdd: () => void }) {
+export function TryOnScreen({ onAdd, notify }: { onAdd: () => void; notify: (msg: string) => void }) {
   const [gender, setGender] = useState<MannequinGender>('female')
   const [worn, setWornState] = useState<string[]>([])
   const [showAll, setShowAll] = useState(false)
   const [cat, setCat] = useState<Category | 'all'>('all')
+  const [saving, setSaving] = useState<{ name: string; tags: string[] } | null>(null)
+  const [busySave, setBusySave] = useState(false)
   const items = useLiveQuery(() => db.items.orderBy('createdAt').reverse().toArray().catch(() => []), [])
+  const lookCount = useLiveQuery(() => db.outfits.count().catch(() => 0), [], 0)
   const thumbs = useThumbs(items)
 
   useEffect(() => {
@@ -97,89 +76,168 @@ export function TryOnScreen({ onAdd }: { onAdd: () => void }) {
   const cats = CATEGORIES.filter((c) => forMe.some((i) => i.category === c.id))
   const shown = forMe.filter((i) => cat === 'all' || i.category === cat)
 
+  const doSave = async () => {
+    if (!saving) return
+    setBusySave(true)
+    try {
+      await saveLook({
+        name: saving.name.trim() || t('looks.defaultName', { n: lookCount + 1 }),
+        tags: saving.tags,
+        gender,
+        items: wornItems,
+        layers: front,
+      })
+      setSaving(null)
+      notify(t('looks.saved'))
+    } finally {
+      setBusySave(false)
+    }
+  }
+
   return (
     <>
-      <ScreenHeader title={t('tryon.title')} aside={<GenderToggle value={gender} onChange={choose} />} />
+      <ScreenHeader
+        title={t('tryon.title')}
+        aside={
+          <Segmented
+            value={gender}
+            onChange={choose}
+            label={t('tryon.mannequin')}
+            className="w-48"
+            options={[
+              { id: 'female', label: t('tryon.female') },
+              { id: 'male', label: t('tryon.male') },
+            ]}
+          />
+        }
+      />
       <Screen className="!px-4">
-        <div className="grid grid-cols-[1fr_5.2rem] items-end gap-3">
-          <ShopWindow key={gender} className="h-[clamp(340px,52dvh,580px)]">
-            <DressedMannequin
-              gender={gender}
-              layers={front}
-              animate
-              className="absolute bottom-[2%] left-1/2 h-[93%] -translate-x-1/2"
-            />
+        <div className="grid grid-cols-[1fr_4.8rem] items-end gap-2.5">
+          <MannequinStage key={gender} gender={gender} layers={front} className="h-[clamp(330px,50dvh,560px)] shadow-[var(--shadow-card)]">
             {busy && wornItems.length > 0 && (
-              <span className="absolute inset-x-0 top-[6%] mx-auto w-fit rounded-full bg-black/45 px-3 py-1.5 text-[0.8rem] text-ivory">
+              <span className="absolute inset-x-0 top-3 mx-auto w-fit rounded-full bg-ink/80 px-3 py-1.5 text-[0.78rem] font-medium text-bg">
                 {t('tryon.dressing')}
               </span>
             )}
-          </ShopWindow>
-          <div className="pb-2">
-            <Mirror key={gender} gender={gender} label={t('tryon.mirror')} layers={back} note={noBack ? t('tryon.noBack') : undefined} />
-          </div>
+            {wornItems.length > 0 && !busy && (
+              <span className="absolute top-3 left-3 rounded-full bg-surface/90 px-2.5 py-1 text-[0.75rem] font-semibold text-ink shadow-sm">
+                {t('tryon.count', { n: wornItems.length })}
+              </span>
+            )}
+          </MannequinStage>
+          <Mirror key={gender} gender={gender} label={t('tryon.mirror')} layers={back} note={noBack ? t('tryon.noBack') : undefined} />
         </div>
 
         {(items?.length ?? 0) === 0 ? (
-          <div className="mt-5 flex items-center gap-4 rounded-[1.4rem] border border-dashed border-brass/40 px-4 py-3.5">
-            <p className="flex-1 text-[0.9rem] leading-snug text-ink-2">{t('tryon.trayEmpty')}</p>
-            <button type="button" onClick={onAdd} aria-label={t('tryon.trayCta')} className="brass-fill grid size-11 shrink-0 place-items-center rounded-full">
-              <PlusIcon width={20} height={20} strokeWidth={1.6} />
-            </button>
+          <div className="card mt-4 flex items-center gap-4 p-4">
+            <p className="flex-1 text-[0.92rem] leading-snug text-ink-2">{t('tryon.trayEmpty')}</p>
+            <Button size="md" onClick={onAdd}>
+              <PlusIcon width={18} height={18} /> {t('tryon.trayCta')}
+            </Button>
           </div>
         ) : (
-          <section className="mt-4" aria-label={t('tryon.tray')}>
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-              {[{ id: 'all' as const, label: t('tryon.all') }, ...cats.map((c) => ({ id: c.id, label: t(c.label) }))].map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setCat(c.id)}
-                  aria-pressed={cat === c.id}
-                  className={`min-h-10 shrink-0 rounded-full px-4 text-[0.88rem] ${cat === c.id ? 'bg-ink text-bg' : 'border border-line text-ink-2'}`}
-                >
-                  {c.label}
-                </button>
-              ))}
-              {worn.length > 0 && (
-                <button type="button" onClick={clear} className="ms-auto min-h-10 shrink-0 rounded-full px-3 text-[0.88rem] text-ink-2 underline decoration-brass/50 underline-offset-4">
-                  {t('tryon.clear')}
-                </button>
+          <>
+            <div className="mt-3.5 flex items-center gap-2.5">
+              {worn.length > 0 ? (
+                <>
+                  <Button size="md" variant="secondary" className="flex-1" onClick={clear}>
+                    {t('tryon.clear')}
+                  </Button>
+                  <Button size="md" className="flex-1" onClick={() => setSaving({ name: '', tags: [] })}>
+                    {t('looks.save')}
+                  </Button>
+                </>
+              ) : (
+                <p className="flex-1 py-2 text-center text-[0.9rem] text-ink-3">{t('tryon.hint')}</p>
               )}
             </div>
-            <ul className="mt-2.5 flex gap-2.5 overflow-x-auto pb-2 [scrollbar-width:none]">
-              {shown.map((i) => {
-                const on = worn.includes(i.id)
-                return (
-                  <li key={i.id} className="shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => toggle(i)}
-                      aria-pressed={on}
-                      aria-label={`${i.name}${on ? `, ${t('tryon.wearing')}` : ''}`}
-                      className={`relative grid h-[5.6rem] w-[4.6rem] place-items-center rounded-2xl border bg-surface p-1.5 transition ${
-                        on ? 'border-brass shadow-[inset_0_0_0_1.5px_var(--c-brass)]' : 'border-line'
-                      }`}
-                    >
-                      {thumbs.get(i.id) && <img src={thumbs.get(i.id)} alt="" className="max-h-full max-w-full object-contain" />}
-                      {on && <span className="absolute -top-1 -right-1 size-3 rounded-full border-2 border-bg bg-brass" aria-hidden />}
-                    </button>
-                  </li>
-                )
-              })}
-              <li className="shrink-0">
-                <button type="button" onClick={onAdd} aria-label={t('tryon.trayCta')} className="grid h-[5.6rem] w-[4.6rem] place-items-center rounded-2xl border border-dashed border-brass/50 text-brass">
-                  <PlusIcon width={22} height={22} strokeWidth={1.5} />
-                </button>
-              </li>
-            </ul>
-            <label className="mt-1 flex min-h-11 items-center gap-3 text-[0.88rem] text-ink-2">
-              <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} className="size-5 accent-[var(--c-brass)]" />
-              {t('tryon.showAll')}
-            </label>
-          </section>
+
+            <section className="card mt-3 p-3" aria-label={t('tryon.tray')}>
+              <div className="no-scrollbar flex items-center gap-2 overflow-x-auto">
+                {[{ id: 'all' as const, label: t('tryon.all') }, ...cats.map((c) => ({ id: c.id, label: t(c.label) }))].map((c) => (
+                  <Chip key={c.id} on={cat === c.id} onClick={() => setCat(c.id)} className="!min-h-9 !px-3.5 !text-[0.85rem]">
+                    {c.label}
+                  </Chip>
+                ))}
+              </div>
+              <ul className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto pt-1.5 pb-1">
+                {shown.map((i) => {
+                  const on = worn.includes(i.id)
+                  return (
+                    <li key={i.id} className="shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => toggle(i)}
+                        aria-pressed={on}
+                        aria-label={`${i.name}${on ? `, ${t('tryon.wearing')}` : ''}`}
+                        className={`tint-${i.category} relative grid h-[5.8rem] w-[4.7rem] place-items-center rounded-2xl p-2 transition ${
+                          on ? 'shadow-[inset_0_0_0_2.5px_var(--c-primary)]' : ''
+                        }`}
+                      >
+                        {thumbs.get(i.id) && <img src={thumbs.get(i.id)} alt="" className="max-h-full max-w-full object-contain" />}
+                        {on && (
+                          <span className="absolute -top-1.5 -right-1.5 grid size-6 place-items-center rounded-full bg-primary text-on-primary ring-2 ring-surface" aria-hidden>
+                            <CheckIcon width={13} height={13} strokeWidth={3} />
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  )
+                })}
+                <li className="shrink-0">
+                  <button
+                    type="button"
+                    onClick={onAdd}
+                    aria-label={t('tryon.trayCta')}
+                    className="grid h-[5.8rem] w-[4.7rem] place-items-center rounded-2xl border-2 border-dashed border-primary/30 text-primary"
+                  >
+                    <PlusIcon width={22} height={22} />
+                  </button>
+                </li>
+              </ul>
+              <label className="mt-1 flex min-h-11 items-center gap-3 text-[0.85rem] text-ink-2">
+                <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} className="size-5 accent-[var(--c-primary)]" />
+                {t('tryon.showAll')}
+              </label>
+            </section>
+          </>
         )}
       </Screen>
+
+      {saving && (
+        <Sheet label={t('looks.save')} onClose={() => setSaving(null)}>
+          <h2 className="font-display text-[1.5rem] font-bold">{t('looks.saveTitle')}</h2>
+          <label className="mt-4 block">
+            <span className="text-[0.8rem] font-semibold text-ink-3">{t('looks.name')}</span>
+            <input
+              value={saving.name}
+              maxLength={50}
+              placeholder={t('looks.defaultName', { n: lookCount + 1 })}
+              onChange={(e) => setSaving({ ...saving, name: e.target.value })}
+              className="mt-2 min-h-13 w-full rounded-2xl bg-surface-2 px-4 text-[1rem] font-medium text-ink placeholder:text-ink-3 focus:shadow-[inset_0_0_0_2px_var(--c-primary)] focus:outline-none"
+            />
+          </label>
+          <p className="mt-5 text-[0.8rem] font-semibold text-ink-3">{t('looks.occasion')}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {OCCASIONS.map((o) => {
+              const on = saving.tags.includes(o)
+              return (
+                <Chip key={o} on={on} onClick={() => setSaving({ ...saving, tags: on ? saving.tags.filter((x) => x !== o) : [...saving.tags, o] })}>
+                  {t(`occ.${o}` as TranslationKey)}
+                </Chip>
+              )
+            })}
+          </div>
+          <div className="mt-6 flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => setSaving(null)}>
+              {t('looks.cancel')}
+            </Button>
+            <Button className="flex-1" onClick={doSave} disabled={busySave}>
+              {busySave ? t('add.saving') : t('looks.saveCta')}
+            </Button>
+          </div>
+        </Sheet>
+      )}
     </>
   )
 }

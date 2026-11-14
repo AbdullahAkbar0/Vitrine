@@ -9,24 +9,24 @@ export function InstallSteps() {
 
   if (install.installed) {
     return (
-      <p className="flex items-center gap-2.5">
-        <CheckIcon width={20} height={20} className="text-ok" /> {t('settings.installed')}
+      <p className="flex items-center gap-2 font-medium text-ok">
+        <CheckIcon width={18} height={18} /> {t('settings.installed')}
       </p>
     )
   }
 
   if (install.ios) {
-    if (!install.iosSafari) return <p className="leading-[1.6] text-ink-2">{t('settings.installIosNotSafari')}</p>
+    if (!install.iosSafari) return <p className="text-[0.92rem] leading-[1.55] text-ink-2">{t('settings.installIosNotSafari')}</p>
     return (
-      <div className="leading-[1.55] text-ink-2">
+      <div className="text-[0.92rem] leading-[1.5] text-ink-2">
         <p>{t('settings.installIosIntro')}</p>
-        <ol className="mt-3.5 space-y-3">
+        <ol className="mt-3 space-y-2.5">
           {(['settings.installIos1', 'settings.installIos2', 'settings.installIos3'] as const).map((k, i) => (
-            <li key={k} className="flex items-start gap-3.5">
-              <span className="w-4 shrink-0 font-display text-[1.15rem] leading-[1.4] text-brass">{i + 1}</span>
+            <li key={k} className="flex items-start gap-3">
+              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-[0.75rem] font-bold text-on-primary">{i + 1}</span>
               <span>
                 {t(k)}
-                {i === 0 && <ShareIcon className="ms-1.5 inline-block align-[-4px] text-brass" width={20} height={20} />}
+                {i === 0 && <ShareIcon className="ms-1.5 inline-block align-[-4px] text-primary" width={18} height={18} />}
               </span>
             </li>
           ))}
@@ -38,13 +38,13 @@ export function InstallSteps() {
   if (install.canPrompt) {
     return (
       <div>
-        <p className="leading-[1.6] text-ink-2">{t('settings.installAndroid')}</p>
-        <Button className="mt-4" onClick={install.prompt}>
+        <p className="text-[0.92rem] leading-[1.55] text-ink-2">{t('settings.installAndroid')}</p>
+        <Button size="md" className="mt-3" onClick={install.prompt}>
           {t('settings.installButton')}
         </Button>
       </div>
     )
   }
 
-  return <p className="leading-[1.6] text-ink-2">{t('settings.installOther')}</p>
+  return <p className="text-[0.92rem] leading-[1.55] text-ink-2">{t('settings.installOther')}</p>
 }

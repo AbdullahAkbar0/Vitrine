@@ -28,7 +28,8 @@ The current mannequins are rendered by `scripts/mannequin/render.html` (run `pyt
 - [x] Stage 1b – Vitrine redesign: name, logo, rendered mannequins, boutique-window look
 - [x] Stage 2 – Add a piece: camera/gallery, on-phone background removal, fix-edges brush, save
 - [x] Stage 2b – Fitting: pieces are reshaped onto the mannequin (collar, shoulders, sleeves, legs) with body shading; auto-turn of sideways/upside-down photos; print close-ups; piece pages; working Try-on with layering and mirror
-- [ ] Stage 3 – Wardrobe filters, search, editing
+- [x] Redesign – indigo + pastel closet design, Bricolage Grotesque / Figtree, new hanger logo; Closet dashboard with categories, search and filters; Save look + Looks gallery
+- [ ] Stage 3 – Editing piece details, adjust fit by hand
 - [ ] Stage 4 – Mannequins and Try-On canvas
 - [ ] Stage 5 – Mirror back view, shading, remembered fit
 - [ ] Stage 6 – Saved outfits, export, backup/restore, storage meter

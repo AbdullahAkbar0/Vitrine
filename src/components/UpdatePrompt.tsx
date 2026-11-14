@@ -35,20 +35,20 @@ export function UpdatePrompt() {
 
   if (needRefresh) {
     return (
-      <div role="status" className="mb-safe fixed inset-x-0 bottom-[5.5rem] z-50 flex justify-center px-3">
-        <div className="flex w-full max-w-md items-center gap-2 rounded-full border border-[#d6b47c]/30 bg-velvet-2 p-1.5 ps-5 text-ivory shadow-2xl">
+      <div role="status" className="fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-3">
+        <div className="flex w-full max-w-md items-center gap-2 rounded-2xl bg-ink p-1.5 ps-4 text-bg shadow-2xl">
           <span className="flex-1 text-sm font-medium">{t('update.ready')}</span>
           <button
             type="button"
             onClick={() => setNeedRefresh(false)}
-            className="min-h-11 rounded-full px-3 text-sm opacity-75"
+            className="min-h-11 rounded-xl px-3 text-sm opacity-75"
           >
             {t('update.later')}
           </button>
           <button
             type="button"
             onClick={() => updateServiceWorker(true)}
-            className="brass-fill min-h-11 rounded-full px-5 text-sm font-medium"
+            className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-white"
           >
             {t('update.tap')}
           </button>
@@ -59,8 +59,8 @@ export function UpdatePrompt() {
 
   if (showOffline) {
     return (
-      <div role="status" className="mb-safe fixed inset-x-0 bottom-[5.5rem] z-50 flex justify-center px-3">
-        <div className="flex items-center gap-2 rounded-full border border-[#d6b47c]/30 bg-velvet-2 px-4 py-2.5 text-sm text-ivory shadow-2xl">
+      <div role="status" className="fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-3">
+        <div className="flex items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm font-medium text-bg shadow-2xl">
           <CheckIcon width={18} height={18} /> {t('offline.ready')}
         </div>
       </div>

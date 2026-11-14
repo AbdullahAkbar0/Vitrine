@@ -1,46 +1,76 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/bodoni-moda';
-@import '@fontsource-variable/jost';
+@import '@fontsource-variable/bricolage-grotesque';
+@import '@fontsource-variable/figtree';
 
 /*
-  Vitrine — a boutique window at night.
-  Velvet (dark plum) and Pearl (light) themes follow the phone setting.
-  The window/stage itself is always velvet, like a lit shop window.
+  Vitrine design tokens.
+  Indigo ink (denim dye) on lilac-white paper, a peony accent, and one pastel per clothing category.
+  Dark mode is a deep night-indigo.
 */
 :root {
-  /* Pearl (light) */
-  --c-bg: #f1eef0;
-  --c-surface: #fbfafb;
-  --c-surface-2: #e7e2e6;
-  --c-line: rgb(34 19 30 / 0.1);
-  --c-ink: #22131e;
-  --c-ink-2: #5b4955;
-  --c-ink-3: #8a7783;
-  --c-brass: #8c6a33;
-  --c-brass-hi: #b8935a;
-  --c-on-brass: #fffaf1;
-  --c-ok: #3d6b4f;
-  --c-warn: #9a4a24;
-  --c-dock: rgb(251 250 251 / 0.82);
+  --c-bg: #f4f3f9;
+  --c-surface: #ffffff;
+  --c-surface-2: #eceaf5;
+  --c-line: rgb(29 27 75 / 0.09);
+  --c-ink: #1d1b4b;
+  --c-ink-2: #55537a;
+  --c-ink-3: #8b89a8;
+  --c-primary: #312e9c;
+  --c-primary-soft: #e6e5fb;
+  --c-on-primary: #ffffff;
+  --c-accent: #f0577f;
+  --c-accent-soft: #ffe1ea;
+  --c-ok: #1f8a5b;
+  --c-warn: #c2410c;
+  --c-dock: rgb(255 255 255 / 0.9);
+  --shadow-card: 0 1px 2px rgb(29 27 75 / 0.05), 0 10px 28px -14px rgb(29 27 75 / 0.22);
+
+  /* one pastel per category */
+  --t-tops: #ffeaa6;
+  --t-outerwear: #cfe9d6;
+  --t-bottoms: #d3e4ff;
+  --t-fullbody: #ffd7e4;
+  --t-footwear: #e4dcff;
+  --t-accessories: #ffdcc4;
+  --t-ink: #1d1b4b;
+
+  /* the try-on studio */
+  --studio-top: #ecebf8;
+  --studio-bottom: #ffffff;
+  --studio-floor: rgb(29 27 75 / 0.16);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* Velvet (dark) */
-    --c-bg: #1b0d17;
-    --c-surface: #251320;
-    --c-surface-2: #301a2a;
-    --c-line: rgb(226 196 146 / 0.13);
-    --c-ink: #f4ece1;
-    --c-ink-2: #c9b5bf;
-    --c-ink-3: #8f7887;
-    --c-brass: #d6b47c;
-    --c-brass-hi: #f1dcae;
-    --c-on-brass: #1b0d17;
-    --c-ok: #9fd1b0;
-    --c-warn: #f0a986;
-    --c-dock: rgb(37 19 32 / 0.82);
+    --c-bg: #121228;
+    --c-surface: #1c1c3a;
+    --c-surface-2: #26264a;
+    --c-line: rgb(241 240 250 / 0.09);
+    --c-ink: #f1f0fa;
+    --c-ink-2: #bdbbd9;
+    --c-ink-3: #8381a6;
+    --c-primary: #9c98ff;
+    --c-primary-soft: #2c2b5c;
+    --c-on-primary: #121228;
+    --c-accent: #ff7fa0;
+    --c-accent-soft: #4a2236;
+    --c-ok: #6fd4a3;
+    --c-warn: #ff9a6b;
+    --c-dock: rgb(28 28 58 / 0.92);
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 30px -16px rgb(0 0 0 / 0.6);
+
+    --t-tops: #4a4020;
+    --t-outerwear: #213f2c;
+    --t-bottoms: #1f3556;
+    --t-fullbody: #4d2338;
+    --t-footwear: #33295e;
+    --t-accessories: #4d3020;
+    --t-ink: #f1f0fa;
+
+    --studio-top: #24244a;
+    --studio-bottom: #17172f;
+    --studio-floor: rgb(0 0 0 / 0.45);
     color-scheme: dark;
   }
 }
@@ -53,16 +83,15 @@
   --color-ink: var(--c-ink);
   --color-ink-2: var(--c-ink-2);
   --color-ink-3: var(--c-ink-3);
-  --color-brass: var(--c-brass);
-  --color-brass-hi: var(--c-brass-hi);
-  --color-on-brass: var(--c-on-brass);
+  --color-primary: var(--c-primary);
+  --color-primary-soft: var(--c-primary-soft);
+  --color-on-primary: var(--c-on-primary);
+  --color-accent: var(--c-accent);
+  --color-accent-soft: var(--c-accent-soft);
   --color-ok: var(--c-ok);
   --color-warn: var(--c-warn);
-  --color-velvet: #1b0d17;
-  --color-velvet-2: #2c1527;
-  --color-ivory: #f4ece1;
-  --font-sans: 'Jost Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Bodoni Moda Variable', Didot, 'Bodoni 72', Georgia, serif;
+  --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', 'Figtree Variable', ui-sans-serif, sans-serif;
 }
 
 html {
@@ -87,99 +116,91 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid var(--c-brass);
-  outline-offset: 3px;
+  outline: 2.5px solid var(--c-primary);
+  outline-offset: 2px;
 }
 
 .pt-safe {
   padding-top: env(safe-area-inset-top);
 }
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
 .mb-safe {
   margin-bottom: max(12px, env(safe-area-inset-bottom));
 }
 
-/* ---------- Brass ---------- */
-.brass-fill {
-  background: linear-gradient(135deg, #f3e0b5 0%, #d6b47c 42%, #a98149 100%);
-  color: #1b0d17;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.55),
-    inset 0 -1px 0 rgb(80 50 10 / 0.25),
-    0 8px 22px -10px rgb(150 105 45 / 0.75);
-}
-.brass-text {
-  background: linear-gradient(120deg, var(--c-brass-hi), var(--c-brass) 55%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.font-display {
+  font-variation-settings: 'opsz' 48;
+  letter-spacing: -0.025em;
 }
 
-/* ---------- The window (stage) ---------- */
-.window-arch {
-  border-radius: 999px 999px 0 0;
-}
-.velvet {
-  background:
-    radial-gradient(120% 70% at 50% 18%, #4a2340 0%, #2a1425 45%, #160a13 100%);
-}
-/* faint vertical folds, like a velvet curtain */
-.velvet-folds {
-  background-image: repeating-linear-gradient(
-    90deg,
-    rgb(255 255 255 / 0) 0px,
-    rgb(255 255 255 / 0.018) 14px,
-    rgb(0 0 0 / 0.05) 28px,
-    rgb(255 255 255 / 0) 42px
-  );
-}
-.spotlight {
-  background: radial-gradient(50% 55% at 50% 22%, rgb(240 214 168 / 0.3) 0%, rgb(240 214 168 / 0.08) 45%, transparent 75%);
-}
-.floor-glow {
-  background: radial-gradient(50% 50% at 50% 50%, rgb(214 180 124 / 0.35), transparent 70%);
+.card {
+  background: var(--c-surface);
+  border-radius: 1.4rem;
+  box-shadow: var(--shadow-card);
 }
 
-/* The one orchestrated moment: the window lights up. */
-@keyframes lights-on {
-  0% {
-    opacity: 0;
-  }
-  40% {
-    opacity: 0.45;
-  }
-  55% {
-    opacity: 0.25;
-  }
-  100% {
-    opacity: 1;
-  }
+.no-scrollbar {
+  scrollbar-width: none;
 }
-@keyframes rise-in {
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Category pastel tiles */
+.tint-tops { background: var(--t-tops); color: var(--t-ink); }
+.tint-outerwear { background: var(--t-outerwear); color: var(--t-ink); }
+.tint-bottoms { background: var(--t-bottoms); color: var(--t-ink); }
+.tint-fullbody { background: var(--t-fullbody); color: var(--t-ink); }
+.tint-footwear { background: var(--t-footwear); color: var(--t-ink); }
+.tint-accessories { background: var(--t-accessories); color: var(--t-ink); }
+
+/* The try-on studio: soft backdrop and floor */
+.studio {
+  background: linear-gradient(180deg, var(--studio-top) 0%, var(--studio-bottom) 78%);
+}
+.studio-floor {
+  background: radial-gradient(50% 50% at 50% 50%, var(--studio-floor), transparent 72%);
+}
+
+/* A cut-out on a soft checker, like a design tool, so transparent edges are easy to judge */
+.checker {
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #f0eff6 25%, transparent 25%),
+    linear-gradient(-45deg, #f0eff6 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #f0eff6 75%),
+    linear-gradient(-45deg, transparent 75%, #f0eff6 75%);
+  background-size: 18px 18px;
+  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+}
+
+@keyframes pop-in {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translateY(10px) scale(0.985);
   }
   to {
     opacity: 1;
     transform: none;
   }
 }
-.lights-on {
-  animation: lights-on 1.4s ease-out both;
+.pop-in {
+  animation: pop-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-.rise-in {
-  animation: rise-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s both;
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
 }
-
-/* Mirror glass */
-.mirror-glass {
-  background:
-    linear-gradient(115deg, rgb(255 255 255 / 0.16) 0%, rgb(255 255 255 / 0.02) 28%, transparent 40%, rgb(255 255 255 / 0.06) 62%, transparent 70%),
-    radial-gradient(120% 80% at 50% 20%, #3a1d33 0%, #1e0f1a 70%, #140910 100%);
-}
-.mirror-frame {
-  background: linear-gradient(160deg, #f3e0b5, #b8935a 35%, #7a5a2b 65%, #e2c48e);
-  padding: 3px;
+.sheet-up {
+  animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {

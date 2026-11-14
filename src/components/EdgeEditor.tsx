@@ -19,7 +19,7 @@ export function EdgeEditor({
   mask: Uint8Array
   onChange: (mask: Uint8Array) => void
   editing: boolean
-  background: 'white' | 'velvet'
+  background: 'light' | 'dark'
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const composite = useRef<ImageData | null>(null)
@@ -138,7 +138,7 @@ export function EdgeEditor({
     <div>
       <div
         className={`relative mx-auto flex max-h-[52dvh] items-center justify-center overflow-hidden rounded-[1.4rem] border border-line ${
-          background === 'white' ? 'bg-white' : 'velvet'
+          background === 'light' ? 'checker' : 'bg-[#1d1b4b]'
         }`}
       >
         <div className="relative">
@@ -155,7 +155,7 @@ export function EdgeEditor({
           {cursor && (
             <span
               aria-hidden
-              className="pointer-events-none absolute rounded-full border-2 border-[#d6b47c] shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"
+              className="pointer-events-none absolute rounded-full border-2 border-accent shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"
               style={{ left: cursor.x - cursor.r, top: cursor.y - cursor.r, width: cursor.r * 2, height: cursor.r * 2 }}
             />
           )}
@@ -173,7 +173,7 @@ export function EdgeEditor({
                   role="radio"
                   aria-checked={mode === m}
                   onClick={() => setMode(m)}
-                  className={`min-h-11 flex-1 rounded-full text-[0.95rem] ${mode === m ? 'brass-fill font-medium' : 'text-ink-2'}`}
+                  className={`min-h-11 flex-1 rounded-full text-[0.95rem] ${mode === m ? 'bg-primary text-on-primary font-semibold' : 'text-ink-2'}`}
                 >
                   {t(m === 'erase' ? 'add.erase' : 'add.restore')}
                 </button>
@@ -196,13 +196,13 @@ export function EdgeEditor({
               max={60}
               value={size}
               onChange={(e) => setSize(Number(e.target.value))}
-              className="h-11 flex-1 accent-[var(--c-brass)]"
+              className="h-11 flex-1 accent-[var(--c-primary)]"
             />
             <span
               aria-hidden
               className="grid size-11 shrink-0 place-items-center rounded-full border border-line"
             >
-              <span className="rounded-full bg-brass" style={{ width: Math.max(4, size * 0.6), height: Math.max(4, size * 0.6) }} />
+              <span className="rounded-full bg-primary" style={{ width: Math.max(4, size * 0.6), height: Math.max(4, size * 0.6) }} />
             </span>
           </label>
         </div>

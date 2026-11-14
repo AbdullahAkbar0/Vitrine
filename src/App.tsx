@@ -45,8 +45,8 @@ export default function App() {
       <UpdatePrompt />
       <div key={tab}>
         {tab === 'wardrobe' && <WardrobeScreen onAdd={() => go('add')} onTryOn={() => go('tryon')} />}
-        {tab === 'tryon' && <TryOnScreen onAdd={() => go('add')} />}
-        {tab === 'outfits' && <OutfitsScreen onCreate={() => go('tryon')} />}
+        {tab === 'tryon' && <TryOnScreen onAdd={() => go('add')} notify={setToast} />}
+        {tab === 'outfits' && <OutfitsScreen onCreate={() => go('tryon')} onWear={() => go('tryon')} />}
         {tab === 'options' && <SettingsScreen status={status} />}
       </div>
       {/* The Add wizard stays alive in the background, so a half-finished piece is never lost when switching tabs. */}
@@ -60,9 +60,9 @@ export default function App() {
         />
       </div>
       {toast && (
-        <div role="status" className="mb-safe fixed inset-x-0 bottom-[5.75rem] z-50 flex justify-center px-3">
-          <div className="flex items-center gap-2 rounded-full border border-[#d6b47c]/30 bg-velvet-2 px-5 py-3 text-[0.95rem] text-ivory shadow-2xl">
-            <CheckIcon width={18} height={18} className="text-[#d6b47c]" /> {toast}
+        <div role="status" className="fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-3">
+          <div className="flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 text-[0.95rem] font-medium text-bg shadow-2xl">
+            <CheckIcon width={18} height={18} className="text-accent" /> {toast}
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 import { t } from '../i18n'
 import type { TranslationKey } from '../i18n/en'
-import { BookmarkIcon, GearIcon, HangerIcon, MannequinIcon, PlusIcon } from './Icons'
+import { GearIcon, HangerIcon, LooksIcon, MannequinIcon, PlusIcon } from './Icons'
 
 export type Tab = 'wardrobe' | 'tryon' | 'add' | 'outfits' | 'options'
 
@@ -8,15 +8,17 @@ const tabs: { id: Tab; label: TranslationKey; Icon: typeof HangerIcon }[] = [
   { id: 'wardrobe', label: 'tab.wardrobe', Icon: HangerIcon },
   { id: 'tryon', label: 'tab.tryon', Icon: MannequinIcon },
   { id: 'add', label: 'tab.add', Icon: PlusIcon },
-  { id: 'outfits', label: 'tab.outfits', Icon: BookmarkIcon },
+  { id: 'outfits', label: 'tab.outfits', Icon: LooksIcon },
   { id: 'options', label: 'tab.settings', Icon: GearIcon },
 ]
 
-/** Floating dock at the bottom of the screen. */
 export function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
-    <nav aria-label={t('tab.navLabel')} className="mb-safe fixed inset-x-0 bottom-0 z-30 px-3">
-      <ul className="mx-auto grid h-[4.5rem] max-w-md grid-cols-5 items-center rounded-full border border-line bg-[var(--c-dock)] px-1.5 shadow-[0_20px_45px_-20px_rgba(27,13,23,0.55)] backdrop-blur-2xl">
+    <nav
+      aria-label={t('tab.navLabel')}
+      className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-[var(--c-dock)] backdrop-blur-xl"
+    >
+      <ul className="mx-auto grid max-w-xl grid-cols-5 items-center px-2 pt-1.5 pb-1">
         {tabs.map(({ id, label, Icon }) => {
           const active = tab === id
           if (id === 'add') {
@@ -27,29 +29,31 @@ export function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void
                   onClick={() => onChange(id)}
                   aria-label={t(label)}
                   aria-current={active ? 'page' : undefined}
-                  className="brass-fill grid size-[3.6rem] place-items-center rounded-full transition-transform duration-150 active:scale-95"
+                  className="grid size-[3.4rem] -translate-y-2 place-items-center rounded-[1.15rem] bg-primary text-on-primary shadow-[0_10px_22px_-8px_var(--c-primary)] ring-4 ring-bg transition-transform active:scale-95"
                 >
-                  <Icon width={26} height={26} strokeWidth={1.6} />
+                  <Icon width={26} height={26} />
                 </button>
               </li>
             )
           }
           return (
-            <li key={id} className="flex justify-center">
+            <li key={id}>
               <button
                 type="button"
                 onClick={() => onChange(id)}
                 aria-current={active ? 'page' : undefined}
-                className={`relative flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-full text-[0.68rem] tracking-[0.03em] transition-colors ${
-                  active ? 'text-ink' : 'text-ink-3'
+                className={`flex min-h-14 w-full flex-col items-center justify-center gap-1 text-[0.7rem] transition-colors ${
+                  active ? 'font-semibold text-ink' : 'font-medium text-ink-3'
                 }`}
               >
-                <Icon width={24} height={24} strokeWidth={active ? 1.6 : 1.3} />
-                <span className={active ? 'font-medium' : ''}>{t(label)}</span>
                 <span
-                  aria-hidden
-                  className={`absolute -bottom-0.5 size-1 rounded-full bg-brass transition-opacity ${active ? 'opacity-100' : 'opacity-0'}`}
-                />
+                  className={`grid h-8 w-14 place-items-center rounded-full transition-colors ${
+                    active ? 'bg-primary-soft text-primary' : ''
+                  }`}
+                >
+                  <Icon width={22} height={22} strokeWidth={active ? 2 : 1.8} />
+                </span>
+                {t(label)}
               </button>
             </li>
           )

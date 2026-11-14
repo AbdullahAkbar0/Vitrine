@@ -7,83 +7,13 @@ export const mannequinSrc = (gender: MannequinGender, view: 'front' | 'back') =>
 /** Width ÷ height of every mannequin picture. Keep new pictures in this shape. */
 export const MANNEQUIN_RATIO = 680 / 1603
 
-/**
- * A lit boutique window: velvet backdrop, spotlight, brass arch, and the mannequin on its stand.
- * Always dark, whatever the phone theme — like a shop window at night.
- */
-export function ShopWindow({
-  children,
-  className = '',
-  animate = true,
-}: {
-  children: ReactNode
-  className?: string
-  animate?: boolean
-}) {
+/** The fitting-room backdrop used wherever the mannequin appears. */
+export function Studio({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`relative isolate ${className}`}>
-      {/* brass arch frame */}
-      <div className="window-arch absolute inset-0 bg-[linear-gradient(160deg,#f3e0b5,#c9a56c_30%,#7c5b2c_60%,#d9b984)] p-[2px]">
-        <div className="window-arch velvet relative h-full w-full overflow-hidden">
-          <div className="velvet-folds absolute inset-0" />
-          <div className={`spotlight absolute inset-0 ${animate ? 'lights-on' : ''}`} />
-          <div className="floor-glow absolute inset-x-[12%] bottom-[2%] h-[9%]" />
-          {children}
-        </div>
-      </div>
+    <div className={`studio relative isolate overflow-hidden rounded-[1.75rem] ${className}`}>
+      <div className="studio-floor absolute inset-x-[10%] bottom-[1%] h-[8%]" />
+      {children}
     </div>
-  )
-}
-
-export function Mannequin({
-  gender,
-  view = 'front',
-  className = '',
-  animate = true,
-}: {
-  gender: MannequinGender
-  view?: 'front' | 'back'
-  className?: string
-  animate?: boolean
-}) {
-  return (
-    <img
-      src={mannequinSrc(gender, view)}
-      alt=""
-      draggable={false}
-      className={`pointer-events-none select-none ${animate ? 'rise-in' : ''} ${className}`}
-      style={{ aspectRatio: `${MANNEQUIN_RATIO}` }}
-    />
-  )
-}
-
-/** The tall mirror beside the mannequin, showing the back view (read-only). */
-export function Mirror({
-  gender,
-  label,
-  layers = [],
-  note,
-}: {
-  gender: MannequinGender
-  label: string
-  layers?: WornLayer[]
-  note?: string
-}) {
-  return (
-    <figure className="flex flex-col items-center">
-      <div className="mirror-frame w-full rounded-[999px_999px_14px_14px] shadow-[0_18px_40px_-18px_rgba(0,0,0,0.6)]">
-        <div className="mirror-glass relative flex aspect-[1/3.1] items-end justify-center overflow-hidden rounded-[999px_999px_12px_12px]">
-          <DressedMannequin gender={gender} view="back" layers={layers} className="relative z-0 h-[94%] opacity-85" />
-          <div className="pointer-events-none absolute inset-0 z-10 bg-[linear-gradient(115deg,rgba(255,255,255,0.14)_0%,transparent_30%,transparent_60%,rgba(255,255,255,0.07)_68%,transparent_76%)]" />
-          {note && (
-            <span className="absolute bottom-[3%] z-20 mx-1 rounded-full bg-black/60 px-2 py-1 text-center text-[0.62rem] leading-tight text-ivory">
-              {note}
-            </span>
-          )}
-        </div>
-      </div>
-      <figcaption className="mt-2 text-[0.8rem] text-ink-3">{label}</figcaption>
-    </figure>
   )
 }
 
@@ -114,7 +44,7 @@ export function DressedMannequin({
   animate?: boolean
 }) {
   return (
-    <div className={`relative ${animate ? 'rise-in' : ''} ${className}`} style={{ aspectRatio: `${MANNEQUIN_RATIO}` }}>
+    <div className={`relative ${animate ? 'pop-in' : ''} ${className}`} style={{ aspectRatio: `${MANNEQUIN_RATIO}` }}>
       <img src={mannequinSrc(gender, view)} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full select-none" />
       {layers.map((l) => {
         const x = l.flip ? 1 - l.rect.x - l.rect.w : l.rect.x
@@ -132,11 +62,65 @@ export function DressedMannequin({
               height: `${l.rect.h * 100}%`,
               transform: l.flip ? 'scaleX(-1)' : undefined,
               opacity: l.faded ? 0.55 : 1,
-              filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.38))',
+              filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.3))',
             }}
           />
         )
       })}
     </div>
+  )
+}
+
+/** A full-height mannequin inside the studio backdrop. */
+export function MannequinStage({
+  gender,
+  view = 'front',
+  layers = [],
+  className = '',
+  animate = true,
+  children,
+}: {
+  gender: MannequinGender
+  view?: 'front' | 'back'
+  layers?: WornLayer[]
+  className?: string
+  animate?: boolean
+  children?: ReactNode
+}) {
+  return (
+    <Studio className={className}>
+      <DressedMannequin gender={gender} view={view} layers={layers} animate={animate} className="absolute bottom-[2%] left-1/2 h-[94%] -translate-x-1/2" />
+      {children}
+    </Studio>
+  )
+}
+
+/** The tall mirror beside the mannequin, showing the back view (read-only). */
+export function Mirror({
+  gender,
+  label,
+  layers = [],
+  note,
+}: {
+  gender: MannequinGender
+  label: string
+  layers?: WornLayer[]
+  note?: string
+}) {
+  return (
+    <figure className="flex flex-col items-center">
+      <div className="w-full rounded-[1.2rem] bg-[linear-gradient(160deg,#ffffff,#c9c8d8_40%,#8e8da6_70%,#e9e8f2)] p-[3px] shadow-[0_14px_30px_-16px_rgb(29_27_75/0.5)]">
+        <div className="studio relative flex aspect-[1/3] items-end justify-center overflow-hidden rounded-[1rem]">
+          <DressedMannequin gender={gender} view="back" layers={layers} className="relative z-0 h-[94%] opacity-90" />
+          <div className="pointer-events-none absolute inset-0 z-10 bg-[linear-gradient(115deg,rgba(255,255,255,0.28)_0%,transparent_30%,transparent_58%,rgba(255,255,255,0.12)_66%,transparent_74%)]" />
+          {note && (
+            <span className="absolute top-[4%] z-20 mx-1 rounded-md bg-ink/70 px-1.5 py-0.5 text-center text-[0.58rem] leading-tight font-semibold text-bg">
+              {note}
+            </span>
+          )}
+        </div>
+      </div>
+      <figcaption className="mt-1.5 text-[0.75rem] font-medium text-ink-3">{label}</figcaption>
+    </figure>
   )
 }
