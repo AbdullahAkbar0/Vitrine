@@ -67,6 +67,8 @@ export interface ItemImage {
   variant?: string
   /** For fitted pictures: where it sits on the mannequin picture (fractions 0..1). */
   rect?: { x: number; y: number; w: number; h: number }
+  /** Which mannequin bodies this fitted picture was made for (refit when the mannequins change). */
+  rig?: number
 }
 
 export interface OutfitLayer {

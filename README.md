@@ -18,7 +18,7 @@ they are gone. Use **Settings → Backup** regularly (backup arrives in Stage 6)
 
 ## Swap in better mannequin pictures
 
-Put new transparent PNG files with the **same file names** (`female-front.png`, `female-back.png`, `male-front.png`, `male-back.png`) into `public/mannequins/`, keeping the same 680×1603 shape; the app picks them up automatically.
+Put new transparent PNG files with the **same file names** (`female-front.png`, `female-back.png`, `male-front.png`, `male-back.png`) into `public/mannequins/`, keeping the same 820×1933 shape; the app picks them up automatically.
 
 The current mannequins are rendered by `scripts/mannequin/render.html` (run `python3 scripts/mannequin/render.py`). App icons come from `node scripts/make-icons.mjs`.
 

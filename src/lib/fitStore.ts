@@ -3,6 +3,9 @@ import { db, newId, type ItemImage, type MannequinGender, type WardrobeItem } fr
 import { fitGarment, type View } from './fit/fit'
 import { blobToImageData, encode } from './image'
 
+/** Bump when the mannequin bodies change, so fitted pictures are made again. */
+export const RIG_VERSION = 2
+
 export interface FitPicture {
   url: string
   rect: { x: number; y: number; w: number; h: number }
@@ -20,7 +23,7 @@ export async function makeFitImage(
 ): Promise<ItemImage> {
   const r = await fitGarment(cutout, sub, gender, view)
   const blob = await encode(r.canvas, { transparent: true, quality: 0.9 })
-  return { id: newId(), itemId, kind: 'fit', variant: `${gender}:${view}`, blob, rect: r.rect }
+  return { id: newId(), itemId, kind: 'fit', variant: `${gender}:${view}`, blob, rect: r.rect, rig: RIG_VERSION }
 }
 
 const pending = new Map<string, Promise<ItemImage | null>>()
@@ -28,12 +31,15 @@ const pending = new Map<string, Promise<ItemImage | null>>()
 /** Gets (or makes and saves) the fitted picture of a piece for one mannequin side. */
 export async function getFit(item: WardrobeItem, gender: MannequinGender, view: View): Promise<ItemImage | null> {
   const variant = `${gender}:${view}`
-  const found = await db.images
+  const all = await db.images
     .where('[itemId+kind]')
     .equals([item.id, 'fit'])
     .filter((i) => i.variant === variant)
-    .first()
+    .toArray()
+  const found = all.find((i) => (i.rig ?? 1) === RIG_VERSION)
   if (found) return found
+  // made for older mannequins: remove and make again
+  if (all.length) await db.images.bulkDelete(all.map((i) => i.id)).catch(() => undefined)
   const key = `${item.id}|${variant}`
   let p = pending.get(key)
   if (!p) {

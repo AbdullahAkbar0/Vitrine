@@ -10,7 +10,7 @@ from PIL import Image
 
 ROOT = Path(__file__).parent.parent.parent
 FRAME = [-0.42, 0.42, -0.05, 1.93]
-W, H = 680, 1603
+W, H = 820, 1933
 
 
 def px(x, y):
@@ -35,29 +35,29 @@ def runs(row, thr=128):
 
 
 def measure(gender):
-    f = 1.0 if gender == 'female' else 0.0
-    mix = lambda m, fe: m + (fe - m) * f
+    fem = gender == 'female'
     img = Image.open(ROOT / 'public' / 'mannequins' / f'{gender}-front.png')
     alpha = img.getchannel('A')
     A = alpha.load()
     rows = [[A[x, y] for x in range(W)] for y in range(H)]
     cx = W / 2
 
-    # analytic joints (same numbers as the renderer)
-    shY = mix(1.49, 1.415)
-    shX = mix(0.205, 0.165)
-    sJ = (shX + 0.005, shY - 0.035)
-    eJ = (sJ[0] + mix(0.075, 0.065), mix(1.205, 1.15))
-    wJ = (eJ[0] + mix(0.052, 0.045), mix(0.95, 0.905))
-    hJ = (mix(0.092, 0.088), mix(0.93, 0.885))
-    kJ = (mix(0.092, 0.08), mix(0.51, 0.495))
-    aJ = (mix(0.088, 0.074), 0.085)
-    head_c = (0.0, mix(1.735, 1.655))
-    head_r = (mix(0.083, 0.075), mix(0.115, 0.106))
-    neck_y = mix(1.50, 1.44)
-    neck_r = mix(0.056, 0.044)
-    waist_y = mix(1.13, 1.075)
-    hips_y = mix(0.965, 0.915)
+    # analytic joints: the same numbers as the renderer (scripts/mannequin/render.html)
+    shY = 1.42 if fem else 1.495
+    shX = 0.168 if fem else 0.222
+    sJ = (shX + 0.005, shY - (0.035 if fem else 0.04))
+    eJ = (sJ[0] + (0.062 if fem else 0.07), 1.15 if fem else 1.2)
+    wJ = (eJ[0] + (0.043 if fem else 0.05), 0.905 if fem else 0.945)
+    hJ = (0.09 if fem else 0.093, 0.885 if fem else 0.94)
+    kJ = (0.078 if fem else 0.09, 0.495 if fem else 0.51)
+    aJ = (0.07 if fem else 0.086, 0.085)
+    head_c = (0.0, 1.66 if fem else 1.745)
+    head_r = (0.071, 0.102) if fem else (0.078, 0.108)
+    neck_y = 1.44 if fem else 1.5
+    neck_r = 0.044 if fem else 0.062
+    waist_y = 1.075 if fem else 1.135
+    hips_y = 0.925 if fem else 0.985
+    arm_radius = (0.046, 0.033, 0.023) if fem else (0.058, 0.043, 0.029)
 
     def center_run(y):
         for a, b in runs(rows[int(y)]):
@@ -113,7 +113,7 @@ def measure(gender):
             a, b = max(rs, key=lambda r: r[1] - r[0])
             legs[y] = [a, b]
     # arm radius along the arm (metres → px)
-    arm_r = [m2px(mix(0.056, 0.046)), m2px(mix(0.042, 0.034)), m2px(mix(0.03, 0.025))]
+    arm_r = [m2px(r) for r in arm_radius]
 
     L = lambda p: px(-p[0], p[1])
     R = lambda p: px(p[0], p[1])

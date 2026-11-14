@@ -9,7 +9,7 @@ import { useFits, useThumbs } from '../lib/hooks'
 import { OCCASIONS, saveLook } from '../lib/looks'
 import { addPiece, getWorn, setWorn } from '../lib/worn'
 import { CheckIcon, PlusIcon } from '../components/Icons'
-import { MannequinStage, Mirror, type WornLayer } from '../components/Window'
+import { MannequinStage, type WornLayer } from '../components/Window'
 import { Button, Chip, Screen, ScreenHeader, Segmented, Sheet } from '../components/ui'
 
 export function TryOnScreen({ onAdd, notify }: { onAdd: () => void; notify: (msg: string) => void }) {
@@ -17,6 +17,7 @@ export function TryOnScreen({ onAdd, notify }: { onAdd: () => void; notify: (msg
   const [worn, setWornState] = useState<string[]>([])
   const [showAll, setShowAll] = useState(false)
   const [cat, setCat] = useState<Category | 'all'>('all')
+  const [view, setView] = useState<'front' | 'back'>('front')
   const [saving, setSaving] = useState<{ name: string; tags: string[] } | null>(null)
   const [busySave, setBusySave] = useState(false)
   const items = useLiveQuery(() => db.items.orderBy('createdAt').reverse().toArray().catch(() => []), [])
@@ -33,13 +34,24 @@ export function TryOnScreen({ onAdd, notify }: { onAdd: () => void; notify: (msg
       .catch(() => undefined)
   }, [])
 
-  const choose = (g: MannequinGender) => {
-    setGender(g)
-    setSetting('tryonGender', g).catch(() => undefined)
-    getWorn(g).then(setWornState)
-  }
 
   const byId = useMemo(() => new Map((items ?? []).map((i) => [i.id, i])), [items])
+
+  const choose = (g: MannequinGender) => {
+    if (g === gender) return
+    setGender(g)
+    setView('front')
+    setSetting('tryonGender', g).catch(() => undefined)
+    // keep the outfit on when switching, for every piece that suits the other mannequin
+    const suits = worn.filter((id) => {
+      const it = byId.get(id)
+      return it && (it.gender === 'unisex' || it.gender === g)
+    })
+    if (suits.length) {
+      setWornState(suits)
+      setWorn(g, suits)
+    } else getWorn(g).then(setWornState)
+  }
   const wornItems = useMemo(
     () =>
       worn
@@ -64,13 +76,14 @@ export function TryOnScreen({ onAdd, notify }: { onAdd: () => void; notify: (msg
     const f = fits[i.id]?.front
     return f ? [{ key: i.id, url: f.url, rect: f.rect }] : []
   })
+  // From behind: the real back photo when there is one, otherwise a plain back in the garment's colour.
   const back: WornLayer[] = wornItems.flatMap((i) => {
     const f = fits[i.id]
     if (f?.back) return [{ key: i.id, url: f.back.url, rect: f.back.rect }]
-    if (f?.front) return [{ key: i.id, url: f.front.url, rect: f.front.rect, flip: true, faded: true }]
+    if (f?.front) return [{ key: i.id, url: f.front.url, rect: f.front.rect, plainBack: i.dominantColor }]
     return []
   })
-  const noBack = back.some((l) => l.faded)
+  const plainBacks = wornItems.filter((i) => !i.hasBack)
 
   const forMe = (items ?? []).filter((i) => showAll || i.gender === gender || i.gender === 'unisex')
   const cats = CATEGORIES.filter((c) => forMe.some((i) => i.category === c.id))
@@ -112,21 +125,39 @@ export function TryOnScreen({ onAdd, notify }: { onAdd: () => void; notify: (msg
         }
       />
       <Screen className="!px-4">
-        <div className="grid grid-cols-[1fr_4.8rem] items-end gap-2.5">
-          <MannequinStage key={gender} gender={gender} layers={front} className="h-[clamp(330px,50dvh,560px)] shadow-[var(--shadow-card)]">
-            {busy && wornItems.length > 0 && (
-              <span className="absolute inset-x-0 top-3 mx-auto w-fit rounded-full bg-ink/80 px-3 py-1.5 text-[0.78rem] font-medium text-bg">
-                {t('tryon.dressing')}
-              </span>
-            )}
-            {wornItems.length > 0 && !busy && (
-              <span className="absolute top-3 left-3 rounded-full bg-surface/90 px-2.5 py-1 text-[0.75rem] font-semibold text-ink shadow-sm">
-                {t('tryon.count', { n: wornItems.length })}
-              </span>
-            )}
-          </MannequinStage>
-          <Mirror key={gender} gender={gender} label={t('tryon.mirror')} layers={back} note={noBack ? t('tryon.noBack') : undefined} />
-        </div>
+        <MannequinStage
+          key={`${gender}-${view}`}
+          gender={gender}
+          view={view}
+          layers={view === 'front' ? front : back}
+          className="h-[clamp(360px,56dvh,640px)] shadow-[var(--shadow-card)]"
+        >
+          <div className="absolute inset-x-0 bottom-3 mx-auto w-[10rem]">
+            <Segmented
+              value={view}
+              onChange={setView}
+              label={t('tryon.view')}
+              className="!bg-surface/85 shadow-sm backdrop-blur"
+              options={[
+                { id: 'front', label: t('tryon.front') },
+                { id: 'back', label: t('tryon.back') },
+              ]}
+            />
+          </div>
+          {wornItems.length > 0 && !busy && (
+            <span className="absolute top-4 left-3 rounded-full bg-surface/90 px-2.5 py-1 text-[0.75rem] font-semibold text-ink shadow-sm">
+              {t('tryon.count', { n: wornItems.length })}
+            </span>
+          )}
+          {busy && wornItems.length > 0 && (
+            <span className="absolute top-4 left-3 rounded-full bg-ink/80 px-3 py-1 text-[0.75rem] font-medium text-bg">{t('tryon.dressing')}</span>
+          )}
+        </MannequinStage>
+        {view === 'back' && plainBacks.length > 0 && (
+          <p className="mt-2.5 px-2 text-center text-[0.8rem] leading-snug text-ink-3">
+            {t('tryon.plainBack', { names: plainBacks.map((i) => i.name).join(', ') })}
+          </p>
+        )}
 
         {(items?.length ?? 0) === 0 ? (
           <div className="card mt-4 flex items-center gap-4 p-4">

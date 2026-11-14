@@ -15,7 +15,7 @@ OUT = HERE / 'out'
 # Full-figure frame: x from -0.42 to 0.42 m, y from -0.05 to 1.93 m (same for every mannequin,
 # so garments placed as percentages line up on every body).
 FRAME = [-0.42, 0.42, -0.05, 1.93]
-W = 680
+W = 820
 H = round(W * (FRAME[3] - FRAME[2]) / (FRAME[1] - FRAME[0]))
 
 JOBS = {
@@ -23,8 +23,9 @@ JOBS = {
     'female-back': dict(female=1, yaw=math.pi),
     'male-front': dict(female=0, yaw=0.0),
     'male-back': dict(female=0, yaw=math.pi),
-    'test-f': dict(female=1, yaw=0.0, width=240, height=566, samples=1),
-    'test-m': dict(female=0, yaw=0.0, width=240, height=566, samples=1),
+    'test-f': dict(female=1, yaw=0.0, width=280, height=660, samples=1),
+    'test-m': dict(female=0, yaw=0.0, width=280, height=660, samples=1),
+    'test-mb': dict(female=0, yaw=math.pi, width=280, height=660, samples=1),
     'test-b': dict(female=1, yaw=math.pi, width=240, height=566, samples=1),
     'shade-female-front': dict(female=1, yaw=0.0, shade=1, inflate=0.018, base=0, samples=2),
     'shade-female-back': dict(female=1, yaw=math.pi, shade=1, inflate=0.018, base=0, samples=2),

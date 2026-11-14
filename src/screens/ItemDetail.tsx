@@ -110,7 +110,7 @@ export function ItemDetail({ item, onClose, onTryOn }: { item: WardrobeItem; onC
             </div>
           )}
           {item.hasBack ? (
-            <div className="absolute top-3 right-3 w-36">
+            <div className="absolute inset-x-0 bottom-3 mx-auto w-40">
               <Segmented
                 value={side}
                 onChange={setSide}

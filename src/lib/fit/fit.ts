@@ -10,8 +10,8 @@ import { thinPlateSpline, type Pt } from './tps'
 
 export type View = 'front' | 'back'
 
-/** Output resolution relative to the mannequin pictures (680 × 1603). */
-const K = 1.5
+/** Output resolution relative to the mannequin pictures (820 × 1933). */
+const K = 1.25
 export const MANNEQUIN_W = rigData.width
 export const MANNEQUIN_H = rigData.height
 
