@@ -46,7 +46,7 @@ export function useFits(items: WardrobeItem[], gender: MannequinGender) {
       const next: Record<string, { front?: FitView; back?: FitView }> = {}
       for (const item of items) {
         const front = toView(await getFit(item, gender, 'front').catch(() => null))
-        const back = item.hasBack ? toView(await getFit(item, gender, 'back').catch(() => null)) : undefined
+        const back = toView(await getFit(item, gender, 'back').catch(() => null))
         next[item.id] = { front, back }
         if (!cancelled) setFits((f) => ({ ...f, [item.id]: next[item.id] }))
       }

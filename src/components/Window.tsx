@@ -5,7 +5,7 @@ import type { MannequinGender } from '../db/db'
 export const mannequinSrc = (gender: MannequinGender, view: 'front' | 'back') => `./mannequins/${gender}-${view}.png`
 
 /** Width ÷ height of every mannequin picture. Keep new pictures in this shape. */
-export const MANNEQUIN_RATIO = 820 / 1933
+export const MANNEQUIN_RATIO = 972 / 2160
 
 /** The fitting-room backdrop used wherever the mannequin appears. */
 export function Studio({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -21,11 +21,6 @@ export interface WornLayer {
   key: string
   url: string
   rect: { x: number; y: number; w: number; h: number }
-  /**
-   * No back photo: show a plain back in the garment's own colour, shaped like the front
-   * (mirrored), so prints and logos never appear back to front.
-   */
-  plainBack?: string
 }
 
 /**
@@ -53,27 +48,10 @@ export function DressedMannequin({
       <img src={mannequinSrc(gender, view)} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full select-none" />
       {layers.map((l) => {
         const pos = {
-          left: `${(l.plainBack ? 1 - l.rect.x - l.rect.w : l.rect.x) * 100}%`,
+          left: `${l.rect.x * 100}%`,
           top: `${l.rect.y * 100}%`,
           width: `${l.rect.w * 100}%`,
           height: `${l.rect.h * 100}%`,
-        }
-        if (l.plainBack) {
-          const mask = `url("${l.url}") center / 100% 100% no-repeat`
-          return (
-            <div
-              key={l.key}
-              className="pointer-events-none absolute"
-              style={{
-                ...pos,
-                transform: 'scaleX(-1)',
-                background: `linear-gradient(90deg, rgba(0,0,0,0.22), rgba(0,0,0,0) 28%, rgba(255,255,255,0.06) 50%, rgba(0,0,0,0) 72%, rgba(0,0,0,0.22)), ${l.plainBack}`,
-                WebkitMask: mask,
-                mask,
-                filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.3))',
-              }}
-            />
-          )
         }
         return (
           <img

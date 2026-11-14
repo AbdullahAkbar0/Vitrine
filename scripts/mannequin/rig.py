@@ -1,16 +1,18 @@
 """Measures the rendered mannequins and writes the fitting targets used by the app.
 
-Run after render.py:  python3 scripts/mannequin/rig.py
-Output: src/config/mannequinRig.json (pixel positions in the 680x1603 mannequin pictures).
+Run after mesh.py and render3d.py:  python3 scripts/mannequin/rig.py WORK/build
+Output: src/config/mannequinRig.json (pixel positions in the 972x2160 mannequin pictures).
 If you replace the mannequin pictures with your own, keep the same pose and size or re-measure.
 """
-import json
+import json, math, sys
 from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).parent.parent.parent
-FRAME = [-0.42, 0.42, -0.05, 1.93]
-W, H = 820, 1933
+BUILD = Path(sys.argv[1]) if len(sys.argv) > 1 else None
+JOINTS_FILE = Path(__file__).parent / 'joints.json'
+FRAME = [-0.45, 0.45, -0.05, 1.95]
+W, H = 972, 2160
 
 
 def px(x, y):
@@ -35,35 +37,48 @@ def runs(row, thr=128):
 
 
 def measure(gender):
-    fem = gender == 'female'
     img = Image.open(ROOT / 'public' / 'mannequins' / f'{gender}-front.png')
     alpha = img.getchannel('A')
     A = alpha.load()
     rows = [[A[x, y] for x in range(W)] for y in range(H)]
     cx = W / 2
-
-    # analytic joints: the same numbers as the renderer (scripts/mannequin/render.html)
-    shY = 1.42 if fem else 1.495
-    shX = 0.168 if fem else 0.222
-    sJ = (shX + 0.005, shY - (0.035 if fem else 0.04))
-    eJ = (sJ[0] + (0.062 if fem else 0.07), 1.15 if fem else 1.2)
-    wJ = (eJ[0] + (0.043 if fem else 0.05), 0.905 if fem else 0.945)
-    hJ = (0.09 if fem else 0.093, 0.885 if fem else 0.94)
-    kJ = (0.078 if fem else 0.09, 0.495 if fem else 0.51)
-    aJ = (0.07 if fem else 0.086, 0.085)
-    head_c = (0.0, 1.66 if fem else 1.745)
-    head_r = (0.071, 0.102) if fem else (0.078, 0.108)
-    neck_y = 1.44 if fem else 1.5
-    neck_r = 0.044 if fem else 0.062
-    waist_y = 1.075 if fem else 1.135
-    hips_y = 0.925 if fem else 0.985
-    arm_radius = (0.046, 0.033, 0.023) if fem else (0.058, 0.043, 0.029)
+    J = JOINTS[gender]
+    sJ, eJ, wJ, hJ, kJ, aJ = (tuple(J[k][:2]) for k in ('shoulder', 'elbow', 'wrist', 'hip', 'knee', 'ankle'))
+    shY = sJ[1] + 0.03
 
     def center_run(y):
         for a, b in runs(rows[int(y)]):
             if a <= cx <= b:
                 return a, b
         return None
+
+    def half_at(y):
+        r = center_run(y)
+        return max(cx - r[0], r[1] - cx) if r else 0
+
+    # head and neck from the silhouette
+    head_top = next(y for y in range(H) if rows[y][int(cx)] > 128)
+    y_sh = int(px(0, sJ[1])[1])
+    neck_row = min(range(int(px(0, J['head'][1])[1]), y_sh), key=half_at)
+    neck_half = half_at(neck_row)
+    neck_base = next((y for y in range(neck_row, y_sh) if half_at(y) > neck_half * 1.35), y_sh)
+    head_half = max(half_at(y) for y in range(head_top, neck_row)) * 0.93
+    waist_lo = int(px(0, hJ[1] + 0.10)[1])
+    waist_hi = int(px(0, hJ[1] + 0.30)[1])
+    waist_row = min(range(waist_hi, waist_lo), key=half_at)
+    waist_y = FRAME[3] - waist_row / H * (FRAME[3] - FRAME[2])
+    hips_y = hJ[1] + 0.03
+
+    def arm_half(t0, t1, f):
+        """Half-thickness of the left arm at a point between two joints."""
+        x, y = px(-(t0[0] + (t1[0] - t0[0]) * f), t0[1] + (t1[1] - t0[1]) * f)
+        ang = math.atan2(abs(t1[0] - t0[0]), abs(t1[1] - t0[1]))
+        for a, b in runs(rows[int(y)]):
+            if a - 3 <= x <= b + 3 and b < cx:
+                return (b - a) / 2 * math.cos(ang)
+        return m2px(0.04)
+
+    arm_px = [arm_half(sJ, eJ, 0.45), arm_half(sJ, eJ, 1.0), arm_half(eJ, wJ, 0.95)]
 
     # armpit: first row below the shoulders where the arm separates from the torso
     y0 = int(px(0, shY)[1])
@@ -84,13 +99,13 @@ def measure(gender):
             if rows[y][int(xp)] > 128:
                 return y
         return None
-    sx_l = px(-(shX - 0.012), 0)[0]
-    sx_r = px(shX - 0.012, 0)[0]
+    sx_l = px(-(sJ[0] + 0.012), 0)[0]
+    sx_r = px(sJ[0] + 0.012, 0)[0]
     shoulder_l = [sx_l, top_at(sx_l)]
     shoulder_r = [sx_r, top_at(sx_r)]
     # neck base sides
-    nb_l = px(-neck_r * 1.05, neck_y + 0.03)
-    nb_r = px(neck_r * 1.05, neck_y + 0.03)
+    nb_l = [round(cx - neck_half * 1.12, 1), neck_base - 6]
+    nb_r = [round(cx + neck_half * 1.12, 1), neck_base - 6]
 
     # crotch: scanning up the middle from the feet
     crotch_y = None
@@ -98,6 +113,16 @@ def measure(gender):
         if rows[y][int(cx)] > 128:
             crotch_y = y
             break
+
+    # top of the shoulder (left side), from just outside the neck to past the shoulder joint
+    y_start = neck_row
+    shoulder_top = {}
+    outer = min(a for a, b in runs(rows[int(px(0, sJ[1] - 0.03)[1])]))
+    for x in range(outer + 2, int(cx - neck_half) + 1, 4):
+        for y in range(y_start, int(px(0, waist_y)[1])):
+            if rows[y][x] > 128:
+                shoulder_top[x] = y
+                break
 
     # body half-width (torso) for every row from the neck to the crotch
     torso = {}
@@ -113,7 +138,7 @@ def measure(gender):
             a, b = max(rs, key=lambda r: r[1] - r[0])
             legs[y] = [a, b]
     # arm radius along the arm (metres → px)
-    arm_r = [m2px(r) for r in arm_radius]
+    arm_r = [round(r, 1) for r in arm_px]
 
     L = lambda p: px(-p[0], p[1])
     R = lambda p: px(p[0], p[1])
@@ -130,17 +155,21 @@ def measure(gender):
         'kneeL': L(kJ), 'kneeR': R(kJ),
         'ankleL': L(aJ), 'ankleR': R(aJ),
         'crotch': [cx, crotch_y],
-        'headTop': px(0, head_c[1] + head_r[1]),
-        'headCenter': px(0, head_c[1]),
-        'headHalfW': m2px(head_r[0]),
+        'headTop': [cx, head_top],
+        'headCenter': [cx, round(head_top + (neck_row - head_top) * 0.46, 1)],
+        'headHalfW': round(head_half, 1),
         'footY': px(0, 0.03)[1],
         'centerX': cx,
         'armRadius': arm_r,
+        'shoulderTop': shoulder_top,
         'torsoHalfW': torso,
         'legL': legs,
     }
 
 
+if BUILD:
+    JOINTS_FILE.write_text(json.dumps({g: json.load(open(BUILD / f'{g}.json'))['joints'] for g in ('female', 'male')}, indent=1))
+JOINTS = json.load(open(JOINTS_FILE))
 out = {'width': W, 'height': H, 'female': measure('female'), 'male': measure('male')}
 target = ROOT / 'src' / 'config' / 'mannequinRig.json'
 target.write_text(json.dumps(out, separators=(',', ':')))

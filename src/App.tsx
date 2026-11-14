@@ -4,6 +4,7 @@ import { UpdatePrompt } from './components/UpdatePrompt'
 import { CheckIcon } from './components/Icons'
 import { t } from './i18n'
 import { startup, type StartupStatus } from './lib/storage'
+import { upgradeItems } from './lib/fitStore'
 import { AddItemScreen } from './screens/AddItem'
 import { OutfitsScreen } from './screens/Outfits'
 import { SettingsScreen } from './screens/Settings'
@@ -22,7 +23,10 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
-    startup().then(setStatus)
+    startup().then((st) => {
+      setStatus(st)
+      setTimeout(() => upgradeItems().catch(() => undefined), 1500)
+    })
     const onHash = () => setTab(tabFromHash())
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)

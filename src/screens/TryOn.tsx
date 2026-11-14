@@ -76,12 +76,9 @@ export function TryOnScreen({ onAdd, notify }: { onAdd: () => void; notify: (msg
     const f = fits[i.id]?.front
     return f ? [{ key: i.id, url: f.url, rect: f.rect }] : []
   })
-  // From behind: the real back photo when there is one, otherwise a plain back in the garment's colour.
   const back: WornLayer[] = wornItems.flatMap((i) => {
-    const f = fits[i.id]
-    if (f?.back) return [{ key: i.id, url: f.back.url, rect: f.back.rect }]
-    if (f?.front) return [{ key: i.id, url: f.front.url, rect: f.front.rect, plainBack: i.dominantColor }]
-    return []
+    const f = fits[i.id]?.back
+    return f ? [{ key: i.id, url: f.url, rect: f.rect }] : []
   })
   const plainBacks = wornItems.filter((i) => !i.hasBack)
 
