@@ -1,11 +1,11 @@
-// Digital and fitted pictures of a piece: made when it is saved, and remade on demand
+// Fitted pictures of a piece: made when it is saved, and remade on demand
 // (older pieces, the other mannequin, or after the mannequins change).
 import { db, newId, type ItemImage, type MannequinGender, type WardrobeItem } from '../db/db'
-import { fitGarment, makeDigital, type View } from './fit/fit'
-import { blobToImageData, encode, fitToCanvas } from './image'
+import { fitGarment, type View } from './fit/fit'
+import { blobToImageData, encode, fitToCanvas, imageDataToCanvas } from './image'
 
-/** Bump when the mannequins or the fitting change, so fitted pictures are made again. */
-export const RIG_VERSION = 4
+/** Bump when the mannequins or the placement change, so fitted pictures are made again. */
+export const RIG_VERSION = 6
 
 export const gendersFor = (item: Pick<WardrobeItem, 'gender'>): MannequinGender[] =>
   item.gender === 'unisex' ? ['female', 'male'] : [item.gender]
@@ -16,20 +16,10 @@ export async function makeFitImage(
   sub: string,
   gender: MannequinGender,
   view: View,
-  fromFront = false,
 ): Promise<ItemImage> {
-  const r = await fitGarment(cutout, sub, gender, view, { fromFront })
+  const r = await fitGarment(cutout, sub, gender, view)
   const blob = await encode(r.canvas, { transparent: true, quality: 0.92 })
   return { id: newId(), itemId, kind: 'fit', variant: `${gender}:${view}`, blob, rect: r.rect, rig: RIG_VERSION }
-}
-
-/** The flat digital piece and its small thumbnail. Null for shoes and accessories (their cut-out is used). */
-export async function makeDigitalImages(itemId: string, cutout: ImageData, sub: string, side: 'front' | 'back'): Promise<ItemImage[]> {
-  const c = makeDigital(cutout, sub)
-  if (!c) return []
-  const out: ItemImage[] = [{ id: newId(), itemId, kind: `${side}-digital`, blob: await encode(c, { transparent: true, quality: 0.92 }), rig: RIG_VERSION }]
-  if (side === 'front') out.push({ id: newId(), itemId, kind: 'thumb', blob: await encode(fitToCanvas(c, 320), { transparent: true, quality: 0.88 }), rig: RIG_VERSION })
-  return out
 }
 
 const pending = new Map<string, Promise<ItemImage | null>>()
@@ -49,11 +39,9 @@ export async function getFit(item: WardrobeItem, gender: MannequinGender, view: 
   let p = pending.get(key)
   if (!p) {
     p = (async () => {
-      // no back photo: the back is built from the front piece, without its print
-      const fromFront = view === 'back' && !item.hasBack
-      const cut = await db.images.where('[itemId+kind]').equals([item.id, fromFront ? 'front-cutout' : `${view}-cutout`]).first()
+      const cut = await db.images.where('[itemId+kind]').equals([item.id, `${view}-cutout`]).first()
       if (!cut) return null
-      const img = await makeFitImage(item.id, await blobToImageData(cut.blob), item.subCategory, gender, view, fromFront)
+      const img = await makeFitImage(item.id, await blobToImageData(cut.blob), item.subCategory, gender, view)
       await db.images.add(img).catch(() => undefined) // if storage is full we still show it
       return img
     })().finally(() => pending.delete(key))
@@ -62,27 +50,28 @@ export async function getFit(item: WardrobeItem, gender: MannequinGender, view: 
   return p
 }
 
-/** Pieces saved by older versions get their digital version (and a clean thumbnail) in the background. */
+/** Pieces saved by older versions: drop their redrawn "digital" pictures and give them a real-photo thumbnail. */
 export async function upgradeItems(): Promise<void> {
   const items = await db.items.toArray()
   for (const item of items) {
     try {
       const imgs = await db.images.where('itemId').equals(item.id).toArray()
-      for (const side of ['front', 'back'] as const) {
-        const cut = imgs.find((i) => i.kind === `${side}-cutout`)
-        const have = imgs.find((i) => i.kind === `${side}-digital` && (i.rig ?? 1) === RIG_VERSION)
-        if (!cut || have) continue
-        const made = await makeDigitalImages(item.id, await blobToImageData(cut.blob), item.subCategory, side)
-        if (!made.length) continue
-        const old = imgs.filter((i) => i.kind === `${side}-digital` || (side === 'front' && i.kind === 'thumb'))
-        await db.transaction('rw', db.images, async () => {
-          await db.images.bulkDelete(old.map((i) => i.id))
-          await db.images.bulkAdd(made)
-        })
+      const digital = imgs.filter((i) => (i.kind as string).endsWith('-digital'))
+      const thumb = imgs.find((i) => i.kind === 'thumb')
+      const needThumb = !thumb || (thumb.rig ?? 0) !== 0
+      if (!digital.length && !needThumb) continue
+      const cut = imgs.find((i) => i.kind === 'front-cutout')
+      const add: ItemImage[] = []
+      if (needThumb && cut) {
+        const c = fitToCanvas(await blobToImageData(cut.blob).then(imageDataToCanvas), 320)
+        add.push({ id: newId(), itemId: item.id, kind: 'thumb', blob: await encode(c, { transparent: true, quality: 0.85 }) })
       }
+      await db.transaction('rw', db.images, async () => {
+        await db.images.bulkDelete([...digital.map((i) => i.id), ...(needThumb && thumb && cut ? [thumb.id] : [])])
+        if (add.length) await db.images.bulkAdd(add)
+      })
     } catch (e) {
       console.warn('Could not upgrade a piece', e)
     }
-    await new Promise((r) => setTimeout(r, 60))
   }
 }

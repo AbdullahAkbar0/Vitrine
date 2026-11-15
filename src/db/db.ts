@@ -48,9 +48,6 @@ export type ImageKind =
   | 'front-original'
   | 'back-original'
   | 'thumb'
-  /** The clean digital version of the piece, laid flat. */
-  | 'front-digital'
-  | 'back-digital'
   | 'detail'
   /** The piece fitted onto a mannequin. `variant` says which, e.g. "female:front". */
   | 'fit'

@@ -31,7 +31,7 @@ pose, then re-run `rig.py`.
 - [x] Stage 2 – Add a piece: camera/gallery, on-phone background removal, fix-edges brush, save
 - [x] Stage 2b – Fitting: pieces are reshaped onto the mannequin (collar, shoulders, sleeves, legs) with body shading; auto-turn of sideways/upside-down photos; print close-ups; piece pages; working Try-on with layering and mirror
 - [x] Redesign – indigo + pastel closet design, Bricolage Grotesque / Figtree, new hanger logo; Closet dashboard with categories, search and filters; Save look + Looks gallery
-- [x] Digital garments – each photo is rebuilt as a clean garment (shape by type, colour and print from the photo) and draped on realistic matte mannequins
+- [x] Real-photo try-on – the cut-out of your own photo is placed on the mannequin (paper-doll style): scaled to the shoulders for tops and coats, to the waist for trousers and skirts. Nothing is redrawn, stylised or turned into a cartoon
 - [ ] Stage 3 – Editing piece details, adjust fit by hand
 - [ ] Stage 4 – Mannequins and Try-On canvas
 - [ ] Stage 5 – Mirror back view, shading, remembered fit
@@ -49,7 +49,7 @@ node scripts/make-icons.mjs           # regenerate logo, icons and splash screen
 ```
 
 Tech: React + TypeScript + Vite, Tailwind CSS, Dexie (IndexedDB), vite-plugin-pwa.
-How it works: `src/lib/fit/analyze.ts` measures the garment in the photo; `digitize.ts` reads its colour and lifts the print; `fit.ts` draws the clean garment flat (wardrobe) and on the mannequin (Try on), with body shading from `public/mannequins/shade-*.png`. Patterned fabrics reuse the photo's fabric inside the clean shape. Layer order is in `src/config/fitRules.ts`.
+How it works: the background is removed on the device (`src/workers/bg.worker.ts`, IMG.LY model, no uploads), then `src/lib/cutout.ts` removes backdrop the model wrongly kept (flat areas of the backdrop's colour at the edge or seen through gaps) and hanger hooks. `src/lib/fit/analyze.ts` turns sideways/upside-down photos the right way up and finds the shoulders or waistband; `src/lib/fit/fit.ts` scales and places the real photo on the mannequin, lets the mannequin's neck show in front of the inside of collars, and adds gentle body shading from `public/mannequins/shade-*.png`. Layer order is in `src/config/fitRules.ts`.
 
 All visible text lives in `src/i18n/en.ts`. Database schema and migrations live in `src/db/db.ts`.
 Pushing to `main` publishes the app to GitHub Pages automatically (`.github/workflows/deploy.yml`).

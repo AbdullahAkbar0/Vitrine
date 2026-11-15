@@ -5,7 +5,7 @@ import { db, newId, type Category, type Gender, type ItemImage, type Style, type
 import { t } from '../i18n'
 import { isToolReady, removeBackground, type BgProgress } from '../lib/bgremove'
 import { dominantColor, nameColor } from '../lib/colors'
-import { cleanMask, composeCutout, coverage } from '../lib/cutout'
+import { cleanMask, composeCutout, coverage, dropHook, stripBackdrop } from '../lib/cutout'
 import {
   NotAnImageError,
   canvasToImageData,
@@ -18,9 +18,8 @@ import {
   rotateMask,
 } from '../lib/image'
 import { binFromAlpha, detectRotation, sharpness } from '../lib/fit/analyze'
-import { fitGarment, makeDigital } from '../lib/fit/fit'
-import { digitize } from '../lib/fit/digitize'
-import { gendersFor, makeDigitalImages, makeFitImage } from '../lib/fitStore'
+import { fitGarment } from '../lib/fit/fit'
+import { gendersFor, makeFitImage } from '../lib/fitStore'
 import { garmentKind } from '../config/fitRules'
 import { getSetting, type MannequinGender } from '../db/db'
 import { DressedMannequin, Studio } from '../components/Window'
@@ -276,8 +275,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
   const [name, setName] = useState('')
   const [nameTouched, setNameTouched] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [mode, setMode] = useState<'fitted' | 'digital' | 'cutout'>('fitted')
-  const [digital, setDigital] = useState<Partial<Record<Side, { url: string; solid: boolean } | null>>>({})
+  const [mode, setMode] = useState<'fitted' | 'cutout'>('fitted')
   const [fitted, setFitted] = useState<Partial<Record<Side, { url: string; rect: { x: number; y: number; w: number; h: number } }>>>({})
   const [fitting, setFitting] = useState(false)
   const [previewGender, setPreviewGender] = useState<MannequinGender>('female')
@@ -312,10 +310,6 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
     setView('front')
     setConfirmClose(false)
     setMode('fitted')
-    setDigital((dg) => {
-      Object.values(dg).forEach((v) => v && URL.revokeObjectURL(v.url))
-      return {}
-    })
     setFitted((f) => {
       Object.values(f).forEach((v) => v && URL.revokeObjectURL(v.url))
       return {}
@@ -376,7 +370,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
       } else setStage('remove')
     })
     setStage('edges')
-    const mask = cleanMask(raw, photo.width, photo.height)
+    const mask = cleanMask(stripBackdrop(photo, raw), photo.width, photo.height)
     if (which === 'front') setStage('colour')
     let result: Processed = { photo, original, mask, manual: false, turned: 0 }
     // photos taken sideways or upside down are turned the right way up
@@ -384,6 +378,10 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
     if (cut && sub && group) {
       const q = detectRotation(binFromAlpha(canvasToImageData(cut)).bin, garmentKind(sub), group)
       if (q) result = { ...turn(result, q), turned: q }
+    }
+    // a hanger hook sticking up from the collar or waistband is not part of the piece
+    if (sub && ['top', 'bottom', 'skirt'].includes(garmentKind(sub))) {
+      result = { ...result, mask: dropHook(result.mask, result.photo.width, result.photo.height) }
     }
     return result
   }
@@ -482,13 +480,6 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
       const r = await fitGarment(cutData, sub, previewGender, view)
       const blob = await new Promise<Blob | null>((res) => r.canvas.toBlob(res, 'image/png'))
       if (cancelled || !blob) return
-      const flat = makeDigital(cutData, sub, 900)
-      const flatBlob = flat ? await new Promise<Blob | null>((res) => flat.toBlob(res, 'image/png')) : null
-      if (cancelled) return
-      setDigital((dg) => {
-        if (dg[view]) URL.revokeObjectURL(dg[view]!.url)
-        return { ...dg, [view]: flatBlob ? { url: URL.createObjectURL(flatBlob), solid: digitize(cutData, sub)?.solid ?? true } : null }
-      })
       const url = URL.createObjectURL(blob)
       setFitted((f) => {
         if (f[view]) URL.revokeObjectURL(f[view]!.url)
@@ -537,13 +528,10 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
         img('back-cutout', await encode(backCut, { transparent: true, quality: 0.9 }))
         img('back-original', await encode(processed.back.original, { transparent: false, quality: 0.85 }))
       }
-      const frontDigital = await makeDigitalImages(id, canvasToImageData(frontCut), sub, 'front')
-      if (frontDigital.length) images.push(...frontDigital)
-      else img('thumb', await encode(fitToCanvas(frontCut, 320), { transparent: true, quality: 0.85 }))
-      if (backCut) images.push(...(await makeDigitalImages(id, canvasToImageData(backCut), sub, 'back')))
+      img('thumb', await encode(fitToCanvas(frontCut, 320), { transparent: true, quality: 0.85 }))
       for (const g of gendersFor({ gender })) {
         images.push(await makeFitImage(id, canvasToImageData(frontCut), sub, g, 'front'))
-        images.push(await makeFitImage(id, canvasToImageData(backCut ?? frontCut), sub, g, 'back', !backCut))
+        if (backCut) images.push(await makeFitImage(id, canvasToImageData(backCut), sub, g, 'back'))
       }
       let order = 0
       for (const blob of printShots) {
@@ -842,7 +830,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
               </div>
             )}
             <div role="tablist" className="mb-4 flex rounded-2xl bg-surface-2 p-1">
-              {(['fitted', 'digital', 'cutout'] as const).map((md) => (
+              {(['fitted', 'cutout'] as const).map((md) => (
                 <button
                   key={md}
                   type="button"
@@ -854,7 +842,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                   }}
                   className={`min-h-10 flex-1 rounded-xl text-[0.92rem] font-semibold ${mode === md ? 'bg-primary text-on-primary' : 'text-ink-3'}`}
                 >
-                  {t(md === 'fitted' ? 'add.viewFitted' : md === 'digital' ? 'add.viewDigital' : 'add.viewCutout')}
+                  {t(md === 'fitted' ? 'add.viewFitted' : 'add.viewCutout')}
                 </button>
               ))}
             </div>
@@ -894,21 +882,6 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
               </>
             )}
 
-            {mode === 'digital' && (
-              <>
-                <div className={`tint-${group ?? 'tops'} grid h-[min(56dvh,480px)] place-items-center rounded-[1.75rem] p-6`}>
-                  {digital[view] ? (
-                    <img src={digital[view]!.url} alt="" className="max-h-full max-w-full object-contain drop-shadow-[0_14px_18px_rgba(29,27,75,0.22)]" />
-                  ) : (
-                    <p className="max-w-[24ch] text-center text-[0.95rem] font-medium">{fitting ? t('add.fitting') : t('add.digitalNone')}</p>
-                  )}
-                </div>
-                <p className="mt-3 text-center text-[0.9rem] leading-[1.5] text-ink-3">
-                  {digital[view] && !digital[view]!.solid ? t('add.patternNote') : t('add.digitalHint')}
-                </p>
-              </>
-            )}
-
             {mode === 'cutout' && cur && printFor && (
               <PrintPlacer
                 preview={printFor.canvas}
@@ -920,7 +893,7 @@ export function AddItemScreen({ onSaved, onExit }: { onSaved: () => void; onExit
                   setPrintShots((all) => [...all, printFor.file])
                   setPrintFor(null)
                   setSoft(false)
-                  setMode('digital')
+                  setMode('fitted')
                 }}
               />
             )}

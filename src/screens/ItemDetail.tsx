@@ -10,7 +10,7 @@ import { ChevronLeftIcon, MannequinIcon, TrashIcon } from '../components/Icons'
 import { MannequinStage } from '../components/Window'
 import { Button, Segmented, Sheet } from '../components/ui'
 
-type Tab = 'fitted' | 'digital' | 'photo'
+type Tab = 'fitted' | 'cutout' | 'photo'
 type Side = 'front' | 'back'
 
 function useBlobUrl(blob?: Blob) {
@@ -99,9 +99,9 @@ export function ItemDetail({ item, onClose, onTryOn }: { item: WardrobeItem; onC
               )}
             </MannequinStage>
           )}
-          {tab === 'digital' && (
+          {tab === 'cutout' && (
             <div className={`tint-${item.category} grid h-[min(58dvh,520px)] place-items-center rounded-[1.75rem] p-6`}>
-              <Picture blob={(get(`${side}-digital`) ?? get(`${side}-cutout`))?.blob} alt={t('detail.digital')} className="drop-shadow-[0_14px_18px_rgba(29,27,75,0.22)]" />
+              <Picture blob={get(`${side}-cutout`)?.blob} alt={t('detail.cutout')} className="drop-shadow-[0_14px_18px_rgba(29,27,75,0.22)]" />
             </div>
           )}
           {tab === 'photo' && (
@@ -130,7 +130,7 @@ export function ItemDetail({ item, onClose, onTryOn }: { item: WardrobeItem; onC
           className="mt-3"
           options={[
             { id: 'fitted', label: t('detail.fitted') },
-            { id: 'digital', label: t('detail.digital') },
+            { id: 'cutout', label: t('detail.cutout') },
             { id: 'photo', label: t('detail.photo') },
           ]}
         />

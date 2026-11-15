@@ -205,8 +205,68 @@ function widthIn(p: Profile, from: number, to: number) {
   return max
 }
 
+/** Erode then dilate (square, radius r): removes thin bits such as a hanger hook, a tag string or a loose thread. */
+export function openBin(b: Bin, r: number): Bin {
+  if (r < 1) return b
+  const pass = (src: Uint8Array, keepIf: 0 | 1): Uint8Array => {
+    // separable min/max filter; pixels outside the picture are ignored
+    const tmp = new Uint8Array(src.length)
+    const out = new Uint8Array(src.length)
+    for (let y = 0; y < b.h; y++) {
+      for (let x = 0; x < b.w; x++) {
+        let v = keepIf
+        for (let k = -r; k <= r && v === keepIf; k++) {
+          const xx = x + k
+          const s = xx < 0 || xx >= b.w ? keepIf : src[y * b.w + xx]
+          if (s !== keepIf) v = s as 0 | 1
+        }
+        tmp[y * b.w + x] = v
+      }
+    }
+    for (let y = 0; y < b.h; y++) {
+      for (let x = 0; x < b.w; x++) {
+        let v = keepIf
+        for (let k = -r; k <= r && v === keepIf; k++) {
+          const yy = y + k
+          const s = yy < 0 || yy >= b.h ? keepIf : tmp[yy * b.w + x]
+          if (s !== keepIf) v = s as 0 | 1
+        }
+        out[y * b.w + x] = v
+      }
+    }
+    return out
+  }
+  const eroded = pass(b.d, 1) // a pixel stays only if all neighbours are garment
+  // dilate = invert, erode, invert
+  const inv = eroded.map((v) => 1 - v)
+  const grown = pass(inv, 1).map((v) => 1 - v)
+  return { w: b.w, h: b.h, d: grown }
+}
+
+/**
+ * How much the top edge falls away from the middle towards the sides, as a share of the height
+ * (shoulders slope down from the collar; a hem is a flat, straight edge), and how lopsided the
+ * top edge is (a garment seen the right way up is mirror-symmetric; one lying on its side is not).
+ */
+function topEdge(b: Bin, p: Profile): { slope: number; lopsided: number } {
+  const H = Math.max(1, p.bottom - p.top)
+  const cx = centreX(p)
+  const W = widthIn(p, p.top, p.top + H * 0.3)
+  if (W < 4) return { slope: 0, lopsided: 0 }
+  const at = (f: number) => [topAt(b, cx - W * f), topAt(b, cx + W * f)]
+  const [li, ri] = at(0.18)
+  const [lo, ro] = at(0.38)
+  return {
+    // both shoulders have to slope down
+    slope: Math.min(lo - li, ro - ri) / H,
+    lopsided: (Math.abs(li - ri) + Math.abs(lo - ro)) / 2 / H,
+  }
+}
+
 /** Score for "this rotation is upright", per kind of garment. */
-function uprightScore(b: Bin, kind: Kind, group: string): number {
+function uprightScore(raw: Bin, kind: Kind, group: string): number {
+  // ignore hanger hooks, tag strings and threads, which would hide the neckline
+  const b = openBin(raw, Math.max(1, Math.round(Math.max(raw.w, raw.h) * 0.012)))
   const p = profile(b)
   if (p.top < 0) return -Infinity
   const H = p.bottom - p.top
@@ -227,11 +287,14 @@ function uprightScore(b: Bin, kind: Kind, group: string): number {
   upper /= 6
   lower /= 6
   const dip = neckDip(b, p)
+  // shoulders slope down from the collar, a hem is flat: strong evidence even for coats that flare out
+  const edge = topEdge(b, p)
+  const slope = Math.max(-0.05, Math.min(0.12, edge.slope)) * 8 - Math.min(0.15, edge.lopsided) * 6
   if (group === 'fullbody') {
     const narrowTop = (widthIn(p, p.bottom - H * 0.1, p.bottom) - widthIn(p, p.top, p.top + H * 0.1)) / maxW
-    return dip * 4 + narrowTop
+    return dip * 4 + narrowTop + slope
   }
-  return (upper - lower) / maxW + dip * 4
+  return ((upper - lower) / maxW) * 0.5 + dip * 4 + slope
 }
 
 /** Quarter turns (clockwise) that make the garment upright. 0 when unsure. */
@@ -240,8 +303,10 @@ export function detectRotation(b: Bin, kind: Kind, group: string): number {
   const scores = [0, 1, 2, 3].map((q) => uprightScore(rotateBin(b, q), kind, group))
   let best = 0
   for (let q = 1; q < 4; q++) if (scores[q] > scores[best]) best = q
-  // only turn when clearly better than leaving it as it is
-  return scores[best] - scores[0] > 0.08 ? best : 0
+  // Only turn when clearly better than leaving it as it is. Most photos are taken the right way up,
+  // so turning upside down needs much stronger evidence than turning a sideways photo.
+  const margin = best === 2 ? 0.3 : 0.12
+  return scores[best] - scores[0] > margin ? best : 0
 }
 
 // ---------- Landmarks ----------
